@@ -1,0 +1,237 @@
+import AppKit
+
+@MainActor enum QuotaStyle {
+    static let background = NSColor(srgbRed: 0.035, green: 0.055, blue: 0.07, alpha: 1)
+    static let muted = NSColor(srgbRed: 0.56, green: 0.62, blue: 0.65, alpha: 1)
+    static let white = NSColor(calibratedWhite: 0.94, alpha: 1)
+    static let mint = NSColor(calibratedRed: 0.49, green: 0.87, blue: 0.73, alpha: 1)
+    static func money(_ micros: Double) -> String {
+        let f = NumberFormatter(); f.locale = AppLanguage.locale; f.numberStyle = .currency; f.currencyCode = "USD"
+        return f.string(from: NSNumber(value: micros / 1_000_000)) ?? "—"
+    }
+    static func paceMarker(_ pace: QuotaPace?, in rect: NSRect, remaining: Bool) {
+        guard let pace else { return }
+        white.setFill()
+        NSRect(x: rect.minX + rect.width * pace.markerPosition(remaining: remaining), y: rect.minY - 3, width: 1.5, height: rect.height + 6).fill()
+    }
+    static func tokens(_ value: Int64) -> String {
+        if value >= 1_000_000_000 { return localizedDecimal(String(format: "%.2fB", Double(value) / 1_000_000_000)) }
+        if value >= 1_000_000 { return localizedDecimal(String(format: "%.1fM", Double(value) / 1_000_000)) }
+        if value >= 1000 { return localizedDecimal(String(format: "%.1fk", Double(value) / 1000)) }
+        return String(value)
+    }
+    static func text(_ value: String, rect: NSRect, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor? = nil, align: NSTextAlignment = .left, mono: Bool = false) {
+        let p = NSMutableParagraphStyle(); p.lineBreakMode = .byTruncatingTail; p.alignment = align
+        (value as NSString).draw(in: rect, withAttributes: [.font: mono ? NSFont.monospacedDigitSystemFont(ofSize: size, weight: weight) : NSFont.systemFont(ofSize: size, weight: weight), .foregroundColor: color ?? white, .paragraphStyle: p])
+    }
+}
+
+@MainActor private final class ModelRow: NSView {
+    let model: ModelUsage; let share: Double
+    override var isFlipped: Bool { true }
+    init(model: ModelUsage, share: Double, frame: NSRect) {
+        self.model = model; self.share = share; super.init(frame: frame)
+        toolTip = L("\(model.model)\n\(model.events) requisições · \(model.tokens.formatted()) tokens informados\nEntrada: \(model.input.formatted()) · gravação cache: \(model.cacheWrite.formatted())\nLeitura cache: \(model.cacheRead.formatted()) · saída: \(model.output.formatted())\n\(model.missingTokenEvents) requisições sem tokens informados",
+                   "\(model.model)\n\(model.events) requests · \(model.tokens.formatted()) reported tokens\nInput: \(model.input.formatted()) · cache write: \(model.cacheWrite.formatted())\nCache read: \(model.cacheRead.formatted()) · output: \(model.output.formatted())\n\(model.missingTokenEvents) requests without reported tokens")
+        setAccessibilityElement(true); setAccessibilityRole(.staticText)
+        setAccessibilityLabel("\(model.model), \(QuotaStyle.money(Double(model.costMicros))), \(model.tokens) tokens")
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override func draw(_ dirtyRect: NSRect) {
+        let name = model.model
+        QuotaStyle.text(name, rect: NSRect(x: 0, y: 3, width: 183, height: 15), size: 10.5, weight: .medium)
+        QuotaStyle.text(QuotaStyle.money(Double(model.costMicros)), rect: NSRect(x: 183, y: 3, width: 96, height: 15), size: 10.5, weight: .medium, align: .right, mono: true)
+        QuotaStyle.text("\(QuotaStyle.tokens(model.tokens))\(model.missingTokenEvents > 0 ? "+" : "") tokens · \(model.events) \(L("requisições", "requests"))", rect: NSRect(x: 0, y: 19, width: 220, height: 13), size: 9, color: QuotaStyle.muted)
+        QuotaStyle.text(String(format: "%.0f%%", share * 100), rect: NSRect(x: 226, y: 19, width: 53, height: 13), size: 9, color: QuotaStyle.muted, align: .right)
+        NSColor(calibratedWhite: 0.17, alpha: 1).setFill(); NSRect(x: 0, y: 36, width: 279, height: 2).fill()
+        QuotaStyle.mint.withAlphaComponent(0.7).setFill(); NSRect(x: 0, y: 36, width: 279 * share, height: 2).fill()
+    }
+}
+
+@MainActor final class QuotaCard: NSView {
+    static let size = NSSize(width: 320, height: 396)
+    var onConnect: (() -> Void)?; var onRefresh: (() -> Void)?; var onQuit: (() -> Void)?
+    var onPeriod: ((UsagePeriod) -> Void)?; var onPreferences: (() -> Void)?
+    var isPreview = false
+    private var snapshot: UsageSnapshot?; private var dataset: UsageDataset?; private var report: AnalyticsReport?
+    private var selection = PeriodSelection(); private var stale = false
+    private var preferences = AppPreferences()
+    private var budget: BudgetAssessment?
+    private var message = L("Conecte sua conta", "Connect your account"); private var analyticsMessage = L("Carregando histórico…", "Loading history…")
+    private let periodPicker = NSPopUpButton(frame: NSRect(x: 16, y: 106, width: 184, height: 25))
+    private let tabs = NSSegmentedControl(labels: ["", "", ""], trackingMode: .selectOne, target: nil, action: nil)
+    private let sortPicker = NSSegmentedControl(labels: ["", ""], trackingMode: .selectOne, target: nil, action: nil)
+    private let modelScroll = NSScrollView(frame: NSRect(x: 18, y: 199, width: 284, height: 147))
+    private var modelSignature = ""
+    private var toolButtons: [NSButton] = []
+    private let connect = NSButton(title: "", target: nil, action: nil)
+    override var isFlipped: Bool { true }
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect); appearance = NSAppearance(named: .darkAqua); wantsLayer = true
+        layer?.backgroundColor = QuotaStyle.background.cgColor; layer?.cornerRadius = 16
+        periodPicker.addItems(withTitles: UsagePeriod.allCases.map(\.title)); periodPicker.font = .systemFont(ofSize: 11, weight: .medium)
+        periodPicker.target = self; periodPicker.action = #selector(periodChanged); periodPicker.isBordered = false; addSubview(periodPicker)
+        tabs.frame = NSRect(x: 18, y: 140, width: 284, height: 24); tabs.segmentStyle = .rounded; tabs.selectedSegment = 0
+        tabs.target = self; tabs.action = #selector(tabChanged); tabs.font = .systemFont(ofSize: 11)
+        for index in 0..<3 { tabs.setWidth(94, forSegment: index) }; addSubview(tabs)
+        sortPicker.frame = NSRect(x: 172, y: 170, width: 130, height: 22); sortPicker.selectedSegment = 0; sortPicker.target = self; sortPicker.action = #selector(sortChanged)
+        sortPicker.toolTip = L("Ordenar do maior para o menor gasto ou quantidade de tokens.", "Sort by highest cost or token count."); sortPicker.font = .systemFont(ofSize: 10); sortPicker.segmentStyle = .rounded; addSubview(sortPicker)
+        modelScroll.drawsBackground = false; modelScroll.hasVerticalScroller = true; modelScroll.autohidesScrollers = true; addSubview(modelScroll)
+        for (name, x, action) in [("gearshape", CGFloat(190), #selector(preferencesAction)), ("arrow.clockwise", CGFloat(222), #selector(refreshAction)), ("person.crop.circle", CGFloat(254), #selector(connectAction)), ("power", CGFloat(286), #selector(quitAction))] {
+            let b = NSButton(image: NSImage(systemSymbolName: name, accessibilityDescription: nil)!, target: self, action: action)
+            b.frame = NSRect(x: x, y: 363, width: 25, height: 25); b.isBordered = false; b.contentTintColor = QuotaStyle.muted; addSubview(b); toolButtons.append(b)
+        }
+        connect.target = self; connect.action = #selector(connectAction)
+        connect.identifier = NSUserInterfaceItemIdentifier("connect"); connect.frame = NSRect(x: 194, y: 106, width: 113, height: 24)
+        connect.isBordered = false; connect.font = .systemFont(ofSize: 10, weight: .medium); connect.contentTintColor = QuotaStyle.mint; addSubview(connect)
+        let mark = NSImageView(frame: NSRect(x: 18, y: 16, width: 18, height: 18)); mark.image = CursorMark.image(size: 18); addSubview(mark)
+        localize()
+        refreshVisibility()
+    }
+    // Controls keep their titles until told otherwise, so a language change calls this again.
+    func localize() {
+        for (index, title) in UsagePeriod.allCases.map(\.title).enumerated() { periodPicker.item(at: index)?.title = title }
+        for (index, label) in [L("Resumo", "Summary"), L("Modelos", "Models"), L("Meta", "Goal")].enumerated() { tabs.setLabel(label, forSegment: index) }
+        for (index, title) in [L("Gasto", "Cost"), "Tokens"].enumerated() { sortPicker.setLabel(title, forSegment: index) }
+        let tips = [L("Preferências de barra, metas e avisos", "Menu bar, goal and alert preferences"), L("Atualizar dados", "Refresh data"), L("Gerenciar conexão", "Manage connection"), L("Sair", "Quit")]
+        for (button, tip) in zip(toolButtons, tips) { button.toolTip = tip; button.setAccessibilityLabel(tip) }
+        connect.title = L("Conectar conta", "Connect account")
+        needsDisplay = true
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    // Both languages, so a message written before a language change is still recognized.
+    static let syncedPrefixes = ["Histórico sincronizado", "History synced"]
+    @objc private func preferencesAction() { onPreferences?() }
+    @objc private func connectAction() { onConnect?() }; @objc private func refreshAction() { onRefresh?() }; @objc private func quitAction() { onQuit?() }
+    @objc private func periodChanged() {
+        let period = UsagePeriod.allCases[periodPicker.indexOfSelectedItem]
+        onPeriod?(period)
+    }
+    @objc private func tabChanged() { refreshVisibility(); needsDisplay = true }
+    @objc private func sortChanged() { modelSignature = ""; rebuildModels(); needsDisplay = true }
+    func showModels() { tabs.selectedSegment = 1; tabChanged() }
+    func showBudget() { tabs.selectedSegment = 2; tabChanged() }
+    func configure(preferences: AppPreferences, budget: BudgetAssessment?) { self.preferences = preferences; self.budget = budget; needsDisplay = true }
+    func update(snapshot: UsageSnapshot?, dataset: UsageDataset?, selection: PeriodSelection, stale: Bool, message: String, analyticsMessage: String, now: Date = Date()) {
+        self.snapshot = snapshot; self.dataset = dataset; self.selection = selection; self.stale = stale
+        self.message = message; self.analyticsMessage = analyticsMessage
+        report = dataset.flatMap { AnalyticsEngine.report(dataset: $0, selection: selection, quota: snapshot, now: now) }
+        periodPicker.selectItem(at: UsagePeriod.allCases.firstIndex(of: selection.preset)!)
+        refreshVisibility(); rebuildModels(); needsDisplay = true
+        toolTip = nil
+    }
+    private var cyclePace: QuotaPace? {
+        guard !stale, let snapshot, let budget else { return nil }
+        return QuotaPace.estimate(usedFraction: budget.fraction, start: budget.cycle.start, end: budget.cycle.end, observedAt: snapshot.observedAt)
+    }
+    private func refreshVisibility() {
+        let models = tabs.selectedSegment == 1; sortPicker.isHidden = !models; modelScroll.isHidden = !models
+        subviews.first { $0.identifier?.rawValue == "connect" }?.isHidden = snapshot != nil
+    }
+    private func rebuildModels() {
+        var rows = report?.models ?? []; if sortPicker.selectedSegment == 1 { rows.sort { $0.tokens == $1.tokens ? $0.model < $1.model : $0.tokens > $1.tokens } }
+        let signature = rows.map { "\($0.model):\($0.costMicros):\($0.tokens)" }.joined() + "\(sortPicker.selectedSegment)"
+        guard signature != modelSignature else { return }; modelSignature = signature
+        let document = FlippedContent(frame: NSRect(x: 0, y: 0, width: 279, height: max(147, rows.count * 44)))
+        let total = max(1, report?.costMicros ?? 0)
+        for (index, row) in rows.enumerated() { document.addSubview(ModelRow(model: row, share: Double(row.costMicros) / Double(total), frame: NSRect(x: 0, y: index * 44, width: 279, height: 44))) }
+        modelScroll.documentView = document
+    }
+    private func text(_ value: String, x: CGFloat = 18, y: CGFloat, width: CGFloat = 284, size: CGFloat = 10, weight: NSFont.Weight = .regular, color: NSColor? = nil, align: NSTextAlignment = .left, mono: Bool = false) {
+        QuotaStyle.text(value, rect: NSRect(x: x, y: y, width: width, height: 32), size: size, weight: weight, color: color, align: align, mono: mono)
+    }
+    override func draw(_ dirtyRect: NSRect) {
+        let background = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 16, yRadius: 16)
+        NSGradient(starting: NSColor(srgbRed: 0.075, green: 0.12, blue: 0.14, alpha: 1), ending: QuotaStyle.background)?.draw(in: background, angle: 90)
+        NSColor.white.withAlphaComponent(0.08).setStroke(); background.lineWidth = 1; background.stroke()
+        NSColor.white.withAlphaComponent(0.025).setFill(); NSBezierPath(roundedRect: NSRect(x: 10, y: 170, width: 300, height: 181), xRadius: 12, yRadius: 12).fill()
+        text("Cursor", x: 42, y: 16, width: 100, size: 13, weight: .semibold)
+        text(isPreview ? L("PRÉVIA", "PREVIEW") : snapshot.map { String(format: preferences.cursorUsageBasis == .used ? L("%.1f%% usado", "%.1f%% used") : L("%.1f%% disponível", "%.1f%% available"), (preferences.cursorUsageBasis == .used ? $0.usedFraction : max(0, 1 - $0.usedFraction)) * 100) } ?? L("SEM CONEXÃO", "NOT CONNECTED"), x: 180, y: 19, width: 122, size: 10, color: QuotaStyle.muted, align: .right)
+        text(snapshot.map { QuotaStyle.money(Double(preferences.cursorUsageBasis == .used ? $0.spentCents : $0.remainingCents) * 10_000) } ?? "—", y: 43, width: 180, size: 22, weight: .medium, mono: true)
+        text(preferences.cursorUsageBasis == .used ? L("consumidos", "used") : L("disponíveis", "available"), x: 196, y: 51, width: 106, size: 10, color: QuotaStyle.muted, align: .right)
+        NSColor(calibratedWhite: 0.18, alpha: 1).setFill(); NSBezierPath(roundedRect: NSRect(x: 18, y: 77, width: 284, height: 4), xRadius: 2, yRadius: 2).fill()
+        (stale ? QuotaStyle.muted : cyclePace?.exceedsQuota == true ? NSColor.systemOrange : QuotaStyle.mint).setFill(); NSBezierPath(roundedRect: NSRect(x: 18, y: 77, width: 284 * min(1, snapshot.map { preferences.cursorUsageBasis == .used ? $0.usedFraction : max(0, 1 - $0.usedFraction) } ?? 0), height: 4), xRadius: 2, yRadius: 2).fill()
+        QuotaStyle.paceMarker(cyclePace, in: NSRect(x: 18, y: 77, width: 284, height: 4), remaining: preferences.cursorUsageBasis == .remaining)
+        let resetFormatter = DateFormatter(); resetFormatter.locale = AppLanguage.locale; resetFormatter.timeZone = TimeZone(secondsFromGMT: 0); resetFormatter.dateFormat = "d MMM"
+        text(snapshot.map { L("\(QuotaStyle.money(Double($0.spentCents) * 10_000)) de \(QuotaStyle.money(Double($0.limitCents) * 10_000)) · renova \(resetFormatter.string(from: $0.resetDate))", "\(QuotaStyle.money(Double($0.spentCents) * 10_000)) of \(QuotaStyle.money(Double($0.limitCents) * 10_000)) · renews \(resetFormatter.string(from: $0.resetDate))") } ?? message, y: 87, size: 8.5, color: QuotaStyle.muted)
+        if tabs.selectedSegment == 0 { drawSummary() }
+        else if tabs.selectedSegment == 2 { drawBudget() }
+        else {
+            text(L("MODELOS · \(report?.models.count ?? 0)", "MODELS · \(report?.models.count ?? 0)"), y: 175, width: 150, size: 9, weight: .medium, color: QuotaStyle.muted)
+            if report?.models.isEmpty ?? true { text(report == nil ? analyticsMessage : L("Nenhuma requisição neste período", "No requests in this period"), y: 222, size: 11, color: QuotaStyle.muted) }
+        }
+        NSColor(calibratedWhite: 0.17, alpha: 1).setFill(); NSRect(x: 18, y: 355, width: 284, height: 1).fill()
+        let footer: String
+        if isPreview { footer = L("Prévia · leitura anterior", "Preview · previous reading") }
+        else if !QuotaCard.syncedPrefixes.contains(where: { analyticsMessage.hasPrefix($0) }) { footer = analyticsMessage }
+        else if let dataset, report != nil { let f = DateFormatter(); f.dateFormat = "HH:mm"; footer = "\(stale ? L("Leitura anterior", "Previous reading") : L("Atualizado", "Updated")) \(f.string(from: dataset.fetchedAt))" }
+        else { footer = analyticsMessage }
+        text(footer, y: 370, width: 169, size: 9, color: QuotaStyle.muted)
+    }
+    private func drawBudget() {
+        guard let budget else { text(L("Sincronize a conta para calcular a meta.", "Sync the account to calculate the goal."), y: 200, size: 11, color: QuotaStyle.muted); return }
+        text(preferences.personalBudgetEnabled ? L("SUA META NO CICLO", "YOUR CYCLE GOAL") : L("COTA OFICIAL DO CICLO", "OFFICIAL CYCLE QUOTA"), y: 176, size: 9, weight: .medium, color: QuotaStyle.muted)
+        text("\(QuotaStyle.money(Double(budget.spentMicros))) / \(QuotaStyle.money(Double(budget.targetMicros)))", y: 194, size: 16, weight: .medium, mono: true)
+        NSColor(calibratedWhite: 0.18, alpha: 1).setFill(); NSRect(x: 18, y: 215, width: 284, height: 5).fill()
+        (budget.fraction >= 1 ? NSColor.systemOrange : QuotaStyle.mint).setFill(); NSRect(x: 18, y: 215, width: 284 * min(1, budget.fraction), height: 5).fill()
+        if preferences.notifyCycle { NSColor.systemOrange.setFill(); NSRect(x: 18 + 284 * Double(preferences.alertPercent) / 100, y: 212, width: 1, height: 11).fill() }
+        QuotaStyle.paceMarker(cyclePace, in: NSRect(x: 18, y: 215, width: 284, height: 5), remaining: false)
+        if let pace = cyclePace { text("\(pace.label) · \(L("estimativa linear", "linear estimate"))", y: 224, size: 8, color: pace.exceedsQuota ? .systemOrange : QuotaStyle.muted) }
+        text(L("HOJE · COTA DIÁRIA AJUSTADA", "TODAY · ADJUSTED DAILY QUOTA"), y: 239, size: 9, weight: .medium, color: QuotaStyle.muted)
+        if let daily = budget.dailyLimitMicros, let spent = budget.todaySpentMicros {
+            text("\(QuotaStyle.money(Double(spent))) / \(QuotaStyle.money(daily))", y: 255, size: 14, weight: .medium, mono: true)
+            NSColor(calibratedWhite: 0.18, alpha: 1).setFill(); NSRect(x: 18, y: 279, width: 284, height: 3).fill()
+            (budget.overDailyLimit ? NSColor.systemOrange : QuotaStyle.mint).setFill()
+            NSRect(x: 18, y: 279, width: daily > 0 ? 284 * min(1, Double(spent) / daily) : (spent > 0 ? 284 : 0), height: 3).fill()
+            if preferences.notifyDaily { NSColor.systemOrange.setFill(); NSRect(x: 18 + 284 * preferences.dailyAlertPercent / 100, y: 276, width: 1, height: 9).fill() }
+            text(budget.overDailyLimit ? L("Cota diária ultrapassada", "Daily quota exceeded") : L("Ainda hoje: \(QuotaStyle.money(budget.remainingTodayMicros ?? 0))", "Left today: \(QuotaStyle.money(budget.remainingTodayMicros ?? 0))"), y: 292, size: 11, weight: .medium, color: budget.overDailyLimit ? .systemOrange : QuotaStyle.mint)
+        } else { text(L("Histórico diário ainda indisponível", "Daily history not available yet"), y: 255, size: 11, color: QuotaStyle.muted) }
+        let guidance = budget.remainingMicros == 0 ? L("Meta atingida: evite consumo adicional.", "Goal reached: avoid further usage.") : budget.requiredSavingMicros > 0 ? L("Economize \(QuotaStyle.money(budget.requiredSavingMicros))/dia para a meta.", "Save \(QuotaStyle.money(budget.requiredSavingMicros))/day to meet the goal.") : L("Ritmo na meta · até \(QuotaStyle.money(budget.recommendedDailyMicros))/dia.", "On pace · up to \(QuotaStyle.money(budget.recommendedDailyMicros))/day.")
+        text(guidance, y: 314, size: 10, color: budget.requiredSavingMicros > 0 ? .systemOrange : QuotaStyle.muted)
+        let alerts = [preferences.notifyCycle ? L("Aviso aos \(preferences.alertPercent)%", "Alert at \(preferences.alertPercent)%") : nil, preferences.notifyDaily ? String(format: L("Diário aos %.0f%%", "Daily at %.0f%%"), preferences.dailyAlertPercent) : nil].compactMap { $0 }
+        text(alerts.isEmpty ? L("Avisos desligados · personalize na engrenagem", "Alerts off · customize under the gear") : alerts.joined(separator: " · "), y: 338, size: 8, color: QuotaStyle.muted)
+    }
+    private func drawSummary() {
+        guard let report else { text(analyticsMessage, y: 202, size: 11, color: QuotaStyle.muted); return }
+        text(QuotaStyle.money(Double(report.costMicros)), y: 177, width: 185, size: 25, weight: .medium, mono: true)
+        text(L("no período", "in the period"), x: 209, y: 190, width: 93, size: 9, color: QuotaStyle.muted, align: .right)
+        text("\(QuotaStyle.tokens(report.tokens))\(report.missingTokenEvents > 0 ? "+" : "") tokens · \(report.eventCount) \(L("requisições", "requests"))", y: 211, size: 10, color: QuotaStyle.muted)
+        if report.missingTokenEvents > 0 { text(L("\(report.missingTokenEvents) sem tokens", "\(report.missingTokenEvents) without tokens"), x: 205, y: 212, width: 97, size: 8, color: QuotaStyle.muted, align: .right) }
+        let bucketSize = max(1, Int(ceil(Double(report.daily.count) / 28)))
+        let buckets = stride(from: 0, to: report.daily.count, by: bucketSize).map { start in report.daily[start..<min(report.daily.count, start + bucketSize)].reduce(Int64(0)) { $0 + $1.costMicros } }
+        let count = max(1, buckets.count), maxCost = max(1, buckets.max() ?? 1), step = 284 / CGFloat(max(1, buckets.count))
+        for (index, cost) in buckets.enumerated() {
+            let height = max(1, 25 * CGFloat(cost) / CGFloat(maxCost)); QuotaStyle.mint.withAlphaComponent(index == count - 1 ? 0.95 : 0.45).setFill()
+            NSBezierPath(roundedRect: NSRect(x: 18 + CGFloat(index) * step, y: 255 - height, width: max(1, step - 3), height: height), xRadius: 1.5, yRadius: 1.5).fill()
+        }
+        let axis = DateFormatter(); axis.locale = AppLanguage.locale; axis.dateFormat = "d MMM"
+        if let first = report.daily.first, let last = report.daily.last {
+            text(axis.string(from: first.date), y: 257, width: 80, size: 7, color: QuotaStyle.muted)
+            text(axis.string(from: last.date), x: 222, y: 257, width: 80, size: 7, color: QuotaStyle.muted, align: .right)
+        }
+        if let p = report.projection {
+            text(L("RITMO DO PERÍODO", "PERIOD PACE"), y: 270, width: 140, size: 8, color: QuotaStyle.muted); text(L("PARA A META / DIA", "FOR THE GOAL / DAY"), x: 168, y: 270, width: 134, size: 8, color: QuotaStyle.muted)
+            text("\(QuotaStyle.money(p.dailyMicros))/\(L("dia", "day"))", y: 286, width: 146, size: 13, weight: .medium, color: p.dailyMicros > p.safeDailyMicros ? .systemOrange : nil, mono: true)
+            text(QuotaStyle.money(budget?.recommendedDailyMicros ?? p.safeDailyMicros), x: 168, y: 286, width: 134, size: 13, weight: .medium, color: QuotaStyle.mint, mono: true)
+            text(L("Projeção do ciclo", "Cycle projection"), y: 319, width: 170, size: 10, color: QuotaStyle.muted)
+            let projected = cyclePace.flatMap { pace in budget.map { pace.projectedFraction * Double($0.targetMicros) } }
+            text(projected.map(QuotaStyle.money) ?? "—", x: 183, y: 315, width: 119, size: 14, weight: .medium, color: cyclePace?.exceedsQuota == true ? .systemOrange : nil, align: .right, mono: true)
+            text(cyclePace.map { "\($0.label) · \(L("estimativa linear", "linear estimate"))" } ?? L("Ritmo do ciclo ainda indisponível", "Cycle pace not available yet"), y: 338, size: 8, color: cyclePace?.exceedsQuota == true ? .systemOrange : QuotaStyle.muted)
+        }
+    }
+}
+
+@MainActor private final class FlippedContent: NSView { override var isFlipped: Bool { true } }
+
+@MainActor func statusIcon(fraction: Double?, stale: Bool) -> NSImage {
+    let image = NSImage(size: NSSize(width: 17, height: 17), flipped: false) { rectangle in
+        let ring = NSBezierPath(ovalIn: rectangle.insetBy(dx: 2, dy: 2)); ring.lineWidth = 2; NSColor.labelColor.withAlphaComponent(0.25).setStroke(); ring.stroke()
+        if let fraction {
+            let arc = NSBezierPath(); arc.lineWidth = 2; arc.lineCapStyle = .round
+            arc.appendArc(withCenter: NSPoint(x: 8.5, y: 8.5), radius: 6.5, startAngle: 90, endAngle: 90 - min(1, max(0, fraction)) * 360, clockwise: true)
+            NSColor.labelColor.setStroke(); arc.stroke()
+        } else { NSColor.labelColor.setFill(); NSRect(x: 5, y: 8, width: 7, height: 1).fill() }
+        if stale { NSColor.labelColor.setFill(); NSBezierPath(ovalIn: NSRect(x: 12, y: 0, width: 4, height: 4)).fill() }; return true
+    }
+    image.isTemplate = true; return image
+}

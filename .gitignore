@@ -1,0 +1,7 @@
+Cursor Usage.app/
+releases/
+build/
+__pycache__/
+*.pyc
+.DS_Store
+/*.png
