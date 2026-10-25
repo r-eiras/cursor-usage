@@ -42,7 +42,7 @@ final class UsageExporter: NSObject, WKDownloadDelegate {
         return true
     }
     private func register(_ download: WKDownload, coverage: DateInterval) {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("ai-quota-\(UUID().uuidString).csv")
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("cursor-usage-\(UUID().uuidString).csv")
         downloads[ObjectIdentifier(download)] = (download, file, coverage)
         download.delegate = self
     }

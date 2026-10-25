@@ -22,6 +22,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private var loginPaused = false
     private var preferences = AppPreferences()
     private var preferencesPanel: PreferencesPanel?
+    private var checkingForUpdates = false
     private let loginItem = LoginItemManager()
     private var notifications: BudgetNotifications!
     private var notificationStatus = ""
@@ -115,7 +116,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         guard let button = status.button else { return }
         if let event = NSApp.currentEvent, event.type == .rightMouseUp {
             closePopovers()
-            let menu = StatusMenu.make(target: self, settings: #selector(showPreferences), about: #selector(showAbout), updates: #selector(checkForUpdates), logout: #selector(disconnectAccount), canDisconnect: !isSignedOut && !signingOut, quit: #selector(quitFromMenu))
+            let menu = StatusMenu.make(target: self, settings: #selector(showPreferences), about: #selector(showAbout), updates: #selector(checkForUpdates), issues: #selector(reportIssue), logout: #selector(disconnectAccount), canDisconnect: !isSignedOut && !signingOut, quit: #selector(quitFromMenu))
             NSMenu.popUpContextMenu(menu, with: event, for: button)
             return
         }
@@ -341,7 +342,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             CursorMark.configure(button, title: presentation.title, showsIcon: preferences.showIcon || preferences.menuBarDensity == .iconsOnly, style: preferences.menuIconStyle)
             let width = ceil(button.attributedTitle.size().width) + (button.image == nil ? 14 : 34)
             if status.length != max(24, width) { status.length = max(24, width) }
-            button.toolTip = nil; button.setAccessibilityLabel(L("Cota do Cursor", "Cursor quota"))
+            button.toolTip = nil; button.setAccessibilityLabel(ProjectLinks.name)
         }
         if forceCard || popover.isShown {
             card.configure(preferences: preferences, budget: budget)
@@ -373,17 +374,54 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
         NSApp.activate(ignoringOtherApps: true)
+        let credits = NSMutableAttributedString(string: L("Consumo e saldo do Cursor na barra de menus.\nDados armazenados localmente.\nProjeto independente, sem vínculo com a Anysphere.\nLicença MIT.\n\n", "Cursor usage and remaining allowance in the menu bar.\nData stored locally.\nIndependent project, not affiliated with Anysphere.\nMIT license.\n\n"))
+        for (title, url) in [(L("Código no GitHub", "Source on GitHub"), ProjectLinks.repository), (L("Versões publicadas", "Published releases"), ProjectLinks.releases), (L("Reportar problema", "Report an issue"), ProjectLinks.issues)] {
+            credits.append(NSAttributedString(string: title, attributes: [.link: url]))
+            credits.append(NSAttributedString(string: "\n"))
+        }
         NSApp.orderFrontStandardAboutPanel(options: [
-            .applicationName: "Cursor Usage", .applicationVersion: version, .version: build,
-            .applicationIcon: CursorMark.appImage(size: 96, template: false),
-            .credits: NSAttributedString(string: L("Monitor de cotas do Cursor na barra de menus.\nDados de uso armazenados localmente.\nProjeto independente, sem vínculo com a Anysphere.\nCódigo sob licença MIT.", "Cursor quota monitor for the menu bar.\nUsage data is stored locally.\nIndependent project, not affiliated with Anysphere.\nCode licensed under MIT."))
+            .applicationName: ProjectLinks.name, .applicationVersion: version, .version: build,
+            .applicationIcon: CursorMark.appImage(size: 96, template: false), .credits: credits
         ])
     }
+    @objc private func reportIssue() { NSWorkspace.shared.open(ProjectLinks.issues) }
     @objc private func checkForUpdates() {
-        let alert = NSAlert(); alert.icon = CursorMark.appImage(size: 64, template: false)
-        alert.messageText = L("Atualizações ainda não configuradas", "Updates are not configured yet")
-        alert.informativeText = L("O repositório de versões deste app ainda não foi publicado. A consulta será habilitada quando essa fonte estiver configurada.", "This app's release repository has not been published yet. Checking will be enabled once that source is configured.")
-        alert.addButton(withTitle: L("Entendi", "OK")); NSApp.activate(ignoringOtherApps: true); alert.runModal()
+        guard !checkingForUpdates else { return }
+        checkingForUpdates = true; preferencesPanel?.setUpdateChecking(true)
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        Task { [weak self] in
+            let result = await ReleaseChecker.check(installedVersion: version)
+            guard let self else { return }
+            self.checkingForUpdates = false; self.preferencesPanel?.setUpdateChecking(false)
+            let alert = NSAlert(); alert.icon = CursorMark.appImage(size: 64, template: false)
+            var releaseURL = ProjectLinks.releases
+            var hasUpdate = false
+            switch result {
+            case .upToDate:
+                alert.messageText = L("Você está atualizado", "You are up to date")
+                alert.informativeText = L("Cursor Usage \(version). Nenhuma versão mais recente foi publicada.", "Cursor Usage \(version). No newer version has been published.")
+            case .available(let latest, let url):
+                hasUpdate = true; releaseURL = url
+                alert.messageText = L("Nova versão disponível", "A new version is available")
+                alert.informativeText = L("Cursor Usage \(latest) está disponível. Você está usando \(version).", "Cursor Usage \(latest) is available. You are using \(version).")
+            case .noRelease:
+                alert.messageText = L("Nenhuma versão publicada", "No published releases")
+                alert.informativeText = L("O repositório ainda não tem uma versão pública disponível.", "The repository does not have a public release yet.")
+            case .rateLimited:
+                alert.messageText = L("O GitHub limitou temporariamente as consultas", "GitHub temporarily limited requests")
+                alert.informativeText = L("Tente novamente mais tarde ou confira as versões no GitHub.", "Try again later or view releases on GitHub.")
+            case .failed:
+                alert.messageText = L("Não foi possível verificar atualizações", "Could not check for updates")
+                alert.informativeText = L("Verifique sua conexão e tente novamente. Você também pode consultar as versões no GitHub.", "Check your connection and try again. You can also view releases on GitHub.")
+            }
+            alert.addButton(withTitle: hasUpdate ? L("Ver versão", "View release") : L("Entendi", "OK"))
+            alert.addButton(withTitle: hasUpdate ? L("Agora não", "Not now") : L("Ver versões", "View releases"))
+            NSApp.activate(ignoringOtherApps: true)
+            let response = alert.runModal()
+            if (hasUpdate && response == .alertFirstButtonReturn) || (!hasUpdate && response == .alertSecondButtonReturn) {
+                NSWorkspace.shared.open(releaseURL)
+            }
+        }
     }
     @objc private func showPreferences() {
         closePopovers()
@@ -395,6 +433,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             panel.onConnect = { [weak self] in self?.showDashboard() }
             panel.onDisconnect = { [weak self] in self?.disconnectAccount() }
             panel.canDisconnect = { [weak self] in self.map { !$0.isSignedOut && !$0.signingOut } ?? false }
+            panel.onReportIssue = { [weak self] in self?.reportIssue() }
             panel.onAbout = { [weak self] in self?.showAbout() }; panel.onCheckUpdates = { [weak self] in self?.checkForUpdates() }
             panel.onCursorAssessment = { [weak self] value in
                 guard let self, let quota = self.history.last else { return nil }

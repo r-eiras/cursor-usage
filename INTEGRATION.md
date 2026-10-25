@@ -1,4 +1,4 @@
-# Cursor integration
+# Cursor Usage integration
 
 The app loads `https://cursor.com/dashboard/usage` in a persistent WebKit data store. Authentication takes place in the official dashboard flow. Only HTTPS navigation and the app's own blank page are allowed.
 
@@ -13,3 +13,5 @@ Refresh intervals are one, five, or ten minutes, with five minutes as default. C
 Goals and daily allowances use US dollars. Cycle/daily/renewal alerts are opt-in and deduplicated. The app does not infer missing daily data or zero usage from failed imports.
 
 Saving presentation preferences updates local rendering without reloading the authentication page. The persistent WebKit session is independent of the system browser; federated accounts may require their organization’s sign-in and MFA policy. The app does not request or validate MFA codes itself.
+
+Manual update checks use anonymous HTTPS GET requests to the project's public GitHub latest-release endpoint. An ephemeral URLSession has no cookies or credential storage, with a 12-second timeout. Only HTTPS release links under this repository are accepted. Network errors, invalid responses and rate limits are never reported as an up-to-date result. Issue reporting opens the project's new-issue page without attaching data.

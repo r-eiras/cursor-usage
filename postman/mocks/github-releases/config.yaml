@@ -1,0 +1,10 @@
+version: 1
+name: Public GitHub latest release subset
+slug: public-github-latest-release-sub
+protocol: http
+interceptRequests: true
+port: 4918
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

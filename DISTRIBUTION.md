@@ -1,6 +1,6 @@
 # Cursor app distribution
 
-Version 3.1.4 targets macOS 14 or later. Builds use the host architecture; validate Intel separately before publishing an Intel artifact.
+Version 3.1.5 targets macOS 14 or later. Builds use the host architecture; validate Intel separately before publishing an Intel artifact.
 
 1. Extract `Cursor Usage.app` and move it to Applications.
 2. Open it and connect through the official Cursor dashboard.

@@ -131,6 +131,12 @@ MainActor.assumeIsolated {
         labels.performClick(nil)
         check(preview.title == "0% · 42%" && preview.image != nil, "An invalid alert draft never hides the menu preview when toggling labels")
         saved = nil; save.performClick(nil); check(saved == nil, "Invalid alerts still prevent saving without blocking the menu preview")
+        let reportIssue = views.compactMap { $0 as? NSButton }.first { $0.title == L("Reportar problema…", "Report an issue…") }!
+        var reported = false; panel.onReportIssue = { reported = true }; reportIssue.performClick(nil)
+        check(reported, "The report issue button reaches its action without submitting anything")
+        let updates = views.compactMap { $0 as? NSButton }.first { $0.title == L("Verificar atualizações…", "Check for Updates…") }!
+        panel.setUpdateChecking(true); check(!updates.isEnabled, "Checking updates prevents duplicate requests")
+        panel.setUpdateChecking(false); check(updates.isEnabled, "Finishing restores the update action")
         window.orderOut(nil)
     }
     print("PASS: Cursor controls, numeric validation, pt-BR/en and fixed preferences footer")

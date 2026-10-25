@@ -37,8 +37,8 @@ def main():
     app_zip = release / f'CursorUsage-{version}-macOS-{architecture}.zip'
     subprocess.run(['ditto', '-c', '-k', '--norsrc', '--noextattr', '--keepParent', str(app), str(app_zip)], check=True)
     files = []
-    for folder in ('Sources', 'Tests', 'Assets'):
-        files.extend(path for path in (root / folder).rglob('*') if path.is_file() and path.suffix in ('.swift', '.py', '.png'))
+    for folder in ('Sources', 'Tests', 'Assets', 'postman'):
+        files.extend(path for path in (root / folder).rglob('*') if path.is_file() and path.suffix in ('.swift', '.py', '.png', '.js', '.json', '.yaml', '.md'))
     files.extend(root / name for name in ('build.py', 'package_release.py', 'README.md', 'README.pt-BR.md', 'INTEGRATION.md', 'DISTRIBUTION.md', 'LICENSE', '.gitignore'))
     source_zip = release / f'CursorUsage-{version}-source.zip'
     with zipfile.ZipFile(source_zip, 'w', compression=zipfile.ZIP_DEFLATED) as archive:

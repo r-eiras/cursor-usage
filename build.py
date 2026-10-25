@@ -37,6 +37,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
         run(*command)
         run(str(executable))
     run(sys.executable, str(root/'Tests/Packaging/main.py'))
+    test('ReleaseVersions',['ReleaseUpdates.swift'])
     test('parsing',['Usage.swift'])
     test('Analytics',['Usage.swift','Analytics.swift'])
     test('Preferences',['Usage.swift','Analytics.swift','Preferences.swift'])
@@ -62,7 +63,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     resources.mkdir(parents=True,exist_ok=True)
     shutil.copy2(root/'Assets/Cursor.png',resources/'Cursor.png')
     with (app/'Contents/Info.plist').open('wb') as output:
-        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.1.4','CFBundleVersion':'10','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
+        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.1.5','CFBundleVersion':'11','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
     run('codesign','--force','--sign','-',str(app))
     # Replace the bundle atomically; never overwrite a running signed executable.
     destination = root/'Cursor Usage.app'

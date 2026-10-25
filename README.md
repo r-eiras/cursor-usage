@@ -1,8 +1,8 @@
 # Cursor Usage
 
-A small native macOS app that keeps your Cursor quota, spending, and usage history in the menu bar.
+A small native macOS app that keeps your usage, spending, and remaining allowance in Cursor in the menu bar.
 
-[Português (Brasil)](README.pt-BR.md) · [Distribution](DISTRIBUTION.md) · [Integration details](INTEGRATION.md) · [MIT license](LICENSE)
+[Português (Brasil)](README.pt-BR.md) · [Releases](https://github.com/r-eiras/cursor-usage/releases) · [Report an issue](https://github.com/r-eiras/cursor-usage/issues/new) · [Distribution](DISTRIBUTION.md) · [Integration details](INTEGRATION.md) · [MIT license](LICENSE)
 
 ## Why this app exists
 
@@ -22,7 +22,7 @@ This is an independent project. It is not affiliated with or endorsed by Anysphe
 - Supports a personal spending limit, cycle/daily threshold alerts, renewal alerts, and optional notification sounds.
 - Includes explicit disconnect, optional start at login, and Brazilian Portuguese/English interfaces.
 
-**Today is a calculated daily allowance, not an official daily Cursor quota.** The app spreads the available cycle budget across the remaining calendar days. A personal limit changes this planning reference; it does not change your Cursor plan or stop charges.
+**Today is a calculated daily allowance, not an official daily quota supplied by Cursor.** The app spreads the available cycle budget across the remaining calendar days. A personal limit changes this planning reference; it does not change your Cursor plan or stop charges.
 
 Some exported requests have no reported token count. Those requests still count as requests and retain their reported cost; the token total is marked as partial instead of inventing a number. A request row is not necessarily one user message.
 
@@ -97,7 +97,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.1.4, build 10**.
+Current version: **3.1.5, build 11**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 
@@ -120,7 +120,7 @@ Quota reading depends on the monthly usage summary and CSV format exposed by Cur
 
 The release source targets macOS 14+. Another physical Mac, Intel, clean-account authentication, notification delivery under different Focus settings, and startup after an actual reboot are separate acceptance checks. Local tests do not establish those outcomes.
 
-Release checking and project/issue links are configured after this project's public GitHub repository exists. They do not use another project's release feed.
+About links to this project, its releases, and its issue form. Check for Updates queries the latest public release without a GitHub token and compares numeric versions. When an update is available, you can open its GitHub release page; downloads and installation remain a user action. Report an issue opens a blank issue form and does not upload diagnostics or usage data.
 
 ## Contributing and reporting problems
 
@@ -133,3 +133,5 @@ Turn off **Start at login**, quit the app, and remove it from Applications. Remo
 ## License
 
 [MIT](LICENSE). Cursor's name and logo belong to their respective owner and identify the service whose usage is shown.
+
+The optional HTTP integration check for release updates is `python3 Tests/ReleaseUpdates/run.py`. It requires Postman CLI 1.73+ for the local simulation; this is a development dependency only and is not bundled with the app.

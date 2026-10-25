@@ -6,6 +6,8 @@ import AppKit
     var onDisconnect: (() -> Void)?
     var canDisconnect: (() -> Bool)?
     var onAbout: (() -> Void)?
+    var onReportIssue: (() -> Void)?
+    private var updateButton: NSButton?
     var onCheckUpdates: (() -> Void)?
     var onPreview: ((AppPreferences) -> String)?
     var onCursorAssessment: ((AppPreferences) -> BudgetAssessment?)?
@@ -53,7 +55,7 @@ import AppKit
         tabs.target = self; tabs.action = #selector(selectTab); content.addSubview(tabs)
         let bar = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 400))
         let alertsSection = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 482))
-        let app = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 320))
+        let app = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 370))
         sections = [bar, alertsSection, app]; for section in sections { content.addSubview(section) }
         label(L("Na barra de menus", "In the menu bar"), in: bar, x: 16, y: 14, width: 400, size: 14)
         mode.addItems(withTitles: MenuDisplayMode.allCases.map(\.title)); basis.addItems(withTitles: UsageDisplayBasis.allCases.map(\.title))
@@ -83,7 +85,10 @@ import AppKit
         label("Cursor Usage \(version)", in: app, x: 16, y: 221, width: 450, size: 11, muted: true)
         for (title, x, action) in [(L("Sobre", "About"), CGFloat(16), #selector(aboutAction)), (L("Verificar atualizações…", "Check for Updates…"), CGFloat(162), #selector(updateAction))] {
             let button = NSButton(title: title, target: self, action: action); button.frame = NSRect(x: x, y: 256, width: x == 16 ? 130 : 302, height: 28); button.bezelStyle = .rounded; button.font = .systemFont(ofSize: 11); app.addSubview(button)
+            if action == #selector(updateAction) { updateButton = button }
         }
+        let report = NSButton(title: L("Reportar problema…", "Report an issue…"), target: self, action: #selector(reportIssue))
+        report.frame = NSRect(x: 16, y: 296, width: 448, height: 28); report.bezelStyle = .rounded; report.font = .systemFont(ofSize: 11); app.addSubview(report)
         for (title, x, action) in [(L("Cancelar", "Cancel"), CGFloat(290), #selector(cancel)), (L("Salvar", "Save"), CGFloat(398), #selector(save))] {
             let button = NSButton(title: title, target: self, action: action); button.frame = NSRect(x: x, y: 12, width: 100, height: 30); button.bezelStyle = .rounded
             if action == #selector(save) { button.keyEquivalent = "\r"; button.bezelColor = NSColor(srgbRed: 0.42, green: 0.87, blue: 0.73, alpha: 1) }; container.addSubview(button)
@@ -138,6 +143,11 @@ import AppKit
     @objc private func openAccount() { suspendForMenuBar(); onConnect?() }
     @objc private func disconnectAccount() { onDisconnect?(); disconnect.isEnabled = canDisconnect?() ?? false }
     @objc private func aboutAction() { onAbout?() }
+    @objc private func reportIssue() { onReportIssue?() }
+    func setUpdateChecking(_ checking: Bool) {
+        updateButton?.isEnabled = !checking
+        updateButton?.title = checking ? L("Verificando…", "Checking…") : L("Verificar atualizações…", "Check for Updates…")
+    }
     @objc private func updateAction() { onCheckUpdates?() }
     @objc private func selectTab() {
         let index = max(0, tabs.selectedSegment)

@@ -84,7 +84,7 @@ import AppKit
         connect.target = self; connect.action = #selector(connectAction)
         connect.identifier = NSUserInterfaceItemIdentifier("connect"); connect.frame = NSRect(x: 194, y: 106, width: 113, height: 24)
         connect.isBordered = false; connect.font = .systemFont(ofSize: 10, weight: .medium); connect.contentTintColor = QuotaStyle.mint; addSubview(connect)
-        let mark = NSImageView(frame: NSRect(x: 18, y: 16, width: 18, height: 18)); mark.image = CursorMark.image(size: 18); addSubview(mark)
+        let mark = NSImageView(frame: NSRect(x: 18, y: 16, width: 18, height: 18)); mark.image = CursorMark.appImage(size: 18, template: false); addSubview(mark)
         localize()
         refreshVisibility()
     }
@@ -145,7 +145,7 @@ import AppKit
         NSGradient(starting: NSColor(srgbRed: 0.075, green: 0.12, blue: 0.14, alpha: 1), ending: QuotaStyle.background)?.draw(in: background, angle: 90)
         NSColor.white.withAlphaComponent(0.08).setStroke(); background.lineWidth = 1; background.stroke()
         NSColor.white.withAlphaComponent(0.025).setFill(); NSBezierPath(roundedRect: NSRect(x: 10, y: 170, width: 300, height: 181), xRadius: 12, yRadius: 12).fill()
-        text("Cursor", x: 42, y: 16, width: 100, size: 13, weight: .semibold)
+        text("Cursor Usage", x: 42, y: 16, width: 134, size: 13, weight: .semibold)
         text(isPreview ? L("PRÉVIA", "PREVIEW") : snapshot.map { String(format: preferences.cursorUsageBasis == .used ? L("%.1f%% usado", "%.1f%% used") : L("%.1f%% disponível", "%.1f%% available"), (preferences.cursorUsageBasis == .used ? $0.usedFraction : max(0, 1 - $0.usedFraction)) * 100) } ?? L("SEM CONEXÃO", "NOT CONNECTED"), x: 180, y: 19, width: 122, size: 10, color: QuotaStyle.muted, align: .right)
         text(snapshot.map { QuotaStyle.money(Double(preferences.cursorUsageBasis == .used ? $0.spentCents : $0.remainingCents) * 10_000) } ?? "—", y: 43, width: 180, size: 22, weight: .medium, mono: true)
         text(preferences.cursorUsageBasis == .used ? L("consumidos", "used") : L("disponíveis", "available"), x: 196, y: 51, width: 106, size: 10, color: QuotaStyle.muted, align: .right)

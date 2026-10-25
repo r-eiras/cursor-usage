@@ -92,7 +92,7 @@ Não publique cookies, exports brutos, URLs de autenticação ou arquivos pessoa
 
 ## Build, testes e distribuição
 
-Versão atual: **3.1.4, build 10**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
+Versão atual: **3.1.5, build 11**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
 
 ```sh
 python3 build.py
@@ -108,7 +108,7 @@ A leitura depende do resumo mensal e do formato de CSV do Cursor. Mudanças no p
 
 Intel, outro Mac físico, primeiro login de uma conta limpa, entrega real de notificações sob diferentes modos Foco e início após reiniciar são validações separadas dos testes locais. Assinatura ad hoc não equivale a notarização.
 
-Os links do projeto/issues e a consulta de releases serão configurados após a publicação do repositório. O app não usa o feed de atualização de outro projeto.
+O Sobre traz links do projeto, das versões e das issues. Verificar atualizações consulta a versão pública mais recente sem token do GitHub e compara os números das versões. O usuário pode abrir a página da nova versão para baixar e instalar. Reportar problema abre um formulário vazio e não envia diagnósticos ou dados de uso automaticamente.
 
 Use GitHub Issues para bugs reproduzíveis e sugestões objetivas. Informe versões, passos, resultado esperado e resultado observado, sem dados pessoais. Mudanças de comportamento devem incluir testes de regressão.
 
@@ -117,3 +117,5 @@ Para desinstalar, desative o início com o Mac, saia do app e remova-o de Aplica
 ## Licença
 
 [MIT](LICENSE). O nome e o logo do Cursor pertencem ao respectivo titular e identificam o serviço acompanhado.
+
+O teste HTTP opcional das atualizações roda com `python3 Tests/ReleaseUpdates/run.py`. Ele usa Postman CLI 1.73+ para simular o GitHub localmente; essa dependência é somente de desenvolvimento e não entra no app.
