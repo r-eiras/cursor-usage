@@ -1,8 +1,60 @@
 # Cursor Usage
 
-A small native macOS app that keeps your usage, spending, and remaining allowance in Cursor in the menu bar.
+Your Cursor usage and remaining allowance, in the macOS menu bar.
 
-[Português (Brasil)](README.pt-BR.md) · [Releases](https://github.com/r-eiras/cursor-usage/releases) · [Report an issue](https://github.com/r-eiras/cursor-usage/issues/new) · [Distribution](DISTRIBUTION.md) · [Integration details](INTEGRATION.md) · [MIT license](LICENSE)
+[Português (Brasil)](README.pt-BR.md) · [Release notes](https://github.com/r-eiras/cursor-usage/releases/latest) · [Report a problem](https://github.com/r-eiras/cursor-usage/issues/new)
+
+## Download and install
+
+**Current version: 3.1.6 · build 12**
+
+### [⬇ Download Cursor Usage 3.1.6 for macOS](https://github.com/r-eiras/cursor-usage/releases/download/v3.1.6/CursorUsage-3.1.6-macOS-arm64.zip)
+
+**Apple Silicon · macOS 14 Sonoma or later · free and open source**
+
+| You need | Requirement |
+| --- | --- |
+| Mac | Apple Silicon: M1 or later. Intel is not supported by this download. |
+| macOS | Version 14 (Sonoma) or later. |
+| Account | A Cursor account with usage available in the official dashboard. |
+| Connection | Internet access to sign in and refresh usage. |
+
+No Python, Node.js, Xcode, API key, or build tools are needed to run the download.
+
+### Option 1: ZIP — the simplest way
+
+1. **[Download the app ZIP](https://github.com/r-eiras/cursor-usage/releases/download/v3.1.6/CursorUsage-3.1.6-macOS-arm64.zip)** and double-click it to extract it.
+2. Drag **Cursor Usage.app** into **Applications**.
+3. Open **Cursor Usage** from Applications and sign in to Cursor in its official page.
+4. Click the indicator near the clock to see your usage. The app lives in the menu bar, without a permanent Dock icon.
+
+Use the download above. The files named **Source code** or **`-source.zip`** are for developers, not installation.
+
+### Option 2: Homebrew
+
+Already use [Homebrew](https://brew.sh)? Copy these two lines into Terminal:
+
+```sh
+brew tap r-eiras/cursor-usage https://github.com/r-eiras/cursor-usage
+brew install --cask r-eiras/cursor-usage/cursor-usage
+```
+
+Then open **Cursor Usage** from Applications and sign in. Homebrew downloads the same prebuilt app; it does not compile it or install the project's tests. This is the project's own tap, not an entry in the official Homebrew catalog.
+
+### First launch on macOS
+
+This release is **ad hoc signed and not notarized**. macOS may block a downloaded copy or require an explicit user decision. Homebrew does not remove that limitation. See [Apple's opening-app guidance](https://support.apple.com/en-us/102445) and [distribution notes](DISTRIBUTION.md).
+
+### Update
+
+Open **Settings → App → Check for Updates** or right-click the menu-bar indicator. The app checks this project's public GitHub releases. For a ZIP installation, download the new ZIP, quit the app, replace it in Applications, and reopen it. Your local preferences and account session are kept.
+
+For a Homebrew installation, use:
+
+```sh
+brew update
+brew upgrade --cask r-eiras/cursor-usage/cursor-usage
+```
 
 ## Why this app exists
 
@@ -25,22 +77,6 @@ This is an independent project. It is not affiliated with or endorsed by Anysphe
 **Today is a calculated daily allowance, not an official daily quota supplied by Cursor.** The app spreads the available cycle budget across the remaining calendar days. A personal limit changes this planning reference; it does not change your Cursor plan or stop charges.
 
 Some exported requests have no reported token count. Those requests still count as requests and retain their reported cost; the token total is marked as partial instead of inventing a number. A request row is not necessarily one user message.
-
-## Install
-
-Requires **macOS 14 or later**. The current prebuilt package targets **Apple Silicon (arm64)**. Intel has not been validated.
-
-1. Open this repository's **Releases** page.
-2. Download `CursorUsage-<version>-macOS-arm64.zip` and extract it.
-3. Move **Cursor Usage.app** to **Applications** and open it.
-4. Connect your account in the official Cursor dashboard shown by the app.
-5. Use the menu-bar indicator to open the usage card.
-
-The user ZIP contains the compiled app, its image resource, bundle metadata, and local signature. **It contains no tests, source code, build scripts, Python runtime, or account data.** The repository and optional `-source.zip` are for development; users do not install them to run the app.
-
-### macOS security notice
-
-This release is **ad hoc signed and not notarized**. A copy downloaded from GitHub may be blocked by Gatekeeper or require an explicit user decision. Running a locally built copy does not prove that a downloaded copy will open without warnings. Publishing on GitHub does not require App Store submission; warning-free downloaded distribution is a separate signing/notarization step. See [distribution notes](DISTRIBUTION.md) and [Apple's guidance](https://support.apple.com/en-us/102445).
 
 ## Use it
 
@@ -97,7 +133,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.1.5, build 11**.
+Current version: **3.1.6, build 12**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 

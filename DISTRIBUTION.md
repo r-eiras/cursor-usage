@@ -1,6 +1,6 @@
 # Cursor app distribution
 
-Version 3.1.5 targets macOS 14 or later. Builds use the host architecture; validate Intel separately before publishing an Intel artifact.
+Version 3.1.6 targets macOS 14 or later. Builds use the host architecture; validate Intel separately before publishing an Intel artifact.
 
 1. Extract `Cursor Usage.app` and move it to Applications.
 2. Open it and connect through the official Cursor dashboard.
@@ -26,3 +26,7 @@ Publish only these generated archives and manifest for the tested source candida
 To uninstall, turn off Open at login, quit the app, and remove it from Applications. Preserve a private backup before resetting `~/Library/Application Support/CursorUsage/`. WebKit sessions and macOS preferences belong to the bundle identifier `local.cursorusage.CursorUsage`.
 
 A clean-account login, notification permission prompt, reboot/login startup, visibility on physical displays, and another Mac are separate acceptance checks. A successful source build does not establish those results.
+
+## Homebrew tap
+
+`Casks/cursor-usage.rb` is the project-owned cask, served from this repository using an explicit tap URL. It downloads the release ZIP and checks SHA-256, requires Apple Silicon and macOS 14+, and installs only the app. Update its version and checksum for every release after creating the app ZIP. Keep the direct README download links in sync. This tap does not imply acceptance into the official Homebrew catalog or bypass macOS security protections.

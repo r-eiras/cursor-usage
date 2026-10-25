@@ -374,11 +374,12 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
         NSApp.activate(ignoringOtherApps: true)
-        let credits = NSMutableAttributedString(string: L("Consumo e saldo do Cursor na barra de menus.\nDados armazenados localmente.\nProjeto independente, sem vínculo com a Anysphere.\nLicença MIT.\n\n", "Cursor usage and remaining allowance in the menu bar.\nData stored locally.\nIndependent project, not affiliated with Anysphere.\nMIT license.\n\n"))
-        for (title, url) in [(L("Código no GitHub", "Source on GitHub"), ProjectLinks.repository), (L("Versões publicadas", "Published releases"), ProjectLinks.releases), (L("Reportar problema", "Report an issue"), ProjectLinks.issues)] {
+        let credits = NSMutableAttributedString(string: L("Consumo do Cursor na barra de menus.\nProjeto independente, sem vínculo com a Anysphere.\n\n", "Cursor usage in the menu bar.\nIndependent project, not affiliated with Anysphere.\n\n"))
+        for (title, url) in [(L("Criado por \(ProjectLinks.author)", "Created by \(ProjectLinks.author)"), ProjectLinks.authorProfile), (L("Código no GitHub", "Source on GitHub"), ProjectLinks.repository), (L("Novidades das versões", "Release notes"), ProjectLinks.releases), (L("Reportar problema", "Report an issue"), ProjectLinks.issues), (L("Licença MIT", "MIT license"), ProjectLinks.license)] {
             credits.append(NSAttributedString(string: title, attributes: [.link: url]))
             credits.append(NSAttributedString(string: "\n"))
         }
+        credits.addAttribute(.font, value: NSFont.systemFont(ofSize: 11), range: NSRange(location: 0, length: credits.length))
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: ProjectLinks.name, .applicationVersion: version, .version: build,
             .applicationIcon: CursorMark.appImage(size: 96, template: false), .credits: credits

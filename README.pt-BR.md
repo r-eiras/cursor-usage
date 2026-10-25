@@ -1,8 +1,60 @@
 # Cursor Usage
 
-Um app nativo para macOS que mostra a cota, os gastos e o histórico de uso do Cursor na barra de menus.
+Seu consumo e saldo do Cursor na barra de menus do macOS.
 
-[English](README.md) · [Distribuição](DISTRIBUTION.md) · [Integração](INTEGRATION.md) · [Licença MIT](LICENSE)
+[English](README.md) · [Novidades da versão](https://github.com/r-eiras/cursor-usage/releases/latest) · [Reportar problema](https://github.com/r-eiras/cursor-usage/issues/new)
+
+## Download e instalação
+
+**Versão atual: 3.1.6 · build 12**
+
+### [⬇ Baixar Cursor Usage 3.1.6 para macOS](https://github.com/r-eiras/cursor-usage/releases/download/v3.1.6/CursorUsage-3.1.6-macOS-arm64.zip)
+
+**Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
+
+| Você precisa de | Requisito |
+| --- | --- |
+| Mac | Apple Silicon: M1 ou mais recente. Este download não atende Macs Intel. |
+| macOS | Versão 14 (Sonoma) ou superior. |
+| Conta | Uma conta do Cursor com uso disponível no painel oficial. |
+| Conexão | Internet para entrar na conta e atualizar o consumo. |
+
+Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento.
+
+### Opção 1: ZIP — o jeito mais simples
+
+1. **[Baixe o ZIP do app](https://github.com/r-eiras/cursor-usage/releases/download/v3.1.6/CursorUsage-3.1.6-macOS-arm64.zip)** e dê dois cliques nele para extrair.
+2. Arraste **Cursor Usage.app** para **Aplicativos**.
+3. Abra **Cursor Usage** em Aplicativos e entre na sua conta pela página oficial do Cursor.
+4. Clique no indicador perto do relógio para ver seu consumo. O app fica na barra de menus, sem um ícone permanente no Dock.
+
+Use o download acima. Os arquivos **Source code** e **`-source.zip`** são para desenvolvimento, não para instalar o app.
+
+### Opção 2: Homebrew
+
+Já usa o [Homebrew](https://brew.sh)? Copie estas duas linhas no Terminal:
+
+```sh
+brew tap r-eiras/cursor-usage https://github.com/r-eiras/cursor-usage
+brew install --cask r-eiras/cursor-usage/cursor-usage
+```
+
+Depois, abra **Cursor Usage** em Aplicativos e entre na conta. O Homebrew baixa o mesmo app pronto; não compila o projeto nem instala os testes. Este é o tap próprio do projeto, não uma entrada no catálogo oficial do Homebrew.
+
+### Primeira abertura no macOS
+
+Esta versão tem **assinatura ad hoc e não é notarizada**. O macOS pode bloquear o download ou exigir uma decisão explícita do usuário. Instalar pelo Homebrew não elimina essa limitação. Consulte [a orientação da Apple](https://support.apple.com/pt-br/102445) e [as notas de distribuição](DISTRIBUTION.md).
+
+### Como atualizar
+
+Abra **Configurações → App → Verificar atualizações** ou use o botão direito no indicador da barra. O app consulta os releases públicos deste projeto. Se instalou pelo ZIP, baixe a nova versão, saia do app, substitua-o em Aplicativos e abra novamente. As preferências e a sessão da conta ficam preservadas.
+
+Se instalou pelo Homebrew, use:
+
+```sh
+brew update
+brew upgrade --cask r-eiras/cursor-usage/cursor-usage
+```
 
 ## Por que ele existe
 
@@ -25,22 +77,6 @@ Este é um projeto independente, sem vínculo ou endosso da Anysphere.
 **A cota de hoje é calculada pelo app; não é uma cota diária oficial do Cursor.** O orçamento disponível é dividido entre os dias restantes do ciclo. Um limite pessoal muda essa referência de planejamento: não altera seu plano e não bloqueia cobranças.
 
 Algumas requisições do CSV não informam tokens. Elas continuam contando como requisições e mantêm o custo informado; o total de tokens fica parcial. Uma linha do histórico não equivale necessariamente a uma mensagem sua.
-
-## Instalação
-
-Requer **macOS 14 ou superior**. O pacote atual é para **Apple Silicon (arm64)**; Intel ainda não foi validado.
-
-1. Abra a página **Releases** deste repositório.
-2. Baixe `CursorUsage-<versão>-macOS-arm64.zip` e extraia.
-3. Mova **Cursor Usage.app** para **Aplicativos** e abra.
-4. Conecte a conta no painel oficial do Cursor exibido pelo app.
-5. Abra o cartão pelo indicador na barra de menus.
-
-O ZIP do usuário contém apenas o app compilado, seu recurso de imagem, metadados e assinatura local. **Não leva testes, fontes, scripts de build, Python ou dados de conta.** O repositório e o ZIP `-source` são destinados ao desenvolvimento.
-
-### Aviso do macOS
-
-A versão atual tem **assinatura ad hoc e não é notarizada**. O macOS pode bloquear uma cópia baixada do GitHub ou exigir uma decisão explícita do usuário. Abrir uma compilação local não comprova que um download abrirá sem avisos. Publicar no GitHub não exige publicar na App Store. Veja [as notas de distribuição](DISTRIBUTION.md) e [a orientação da Apple](https://support.apple.com/pt-br/102445).
 
 ## Como usar
 
@@ -92,7 +128,7 @@ Não publique cookies, exports brutos, URLs de autenticação ou arquivos pessoa
 
 ## Build, testes e distribuição
 
-Versão atual: **3.1.5, build 11**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
+Versão atual: **3.1.6, build 12**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
 
 ```sh
 python3 build.py

@@ -7,7 +7,9 @@ let base = CommandLine.arguments.dropFirst().first ?? "https://api.github.com/re
 Task {
     if CommandLine.arguments.contains("--live") {
         let result = await ReleaseChecker.check(installedVersion: "3.1.4")
-        check(result == .upToDate, "The published release is readable without account credentials")
+        if result != .upToDate {
+            guard case .available = result else { fatalError("The public endpoint must return a valid published release") }
+        }
         print("PASS: live public release check without GitHub credentials"); exit(0)
     }
     func run(_ scenario: String, installed: String = "3.1.4", timeout: TimeInterval = 3) async -> ReleaseCheckResult {
