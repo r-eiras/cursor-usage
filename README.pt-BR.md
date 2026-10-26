@@ -8,8 +8,6 @@ Seu consumo e saldo do Cursor na barra de menus do macOS.
 
 **Versão atual: 3.1.6 · build 12**
 
-### [⬇ Baixar Cursor Usage 3.1.6 para macOS](https://github.com/r-eiras/cursor-usage/releases/download/v3.1.6/CursorUsage-3.1.6-macOS-arm64.zip)
-
 **Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 
 | Você precisa de | Requisito |
@@ -21,7 +19,7 @@ Seu consumo e saldo do Cursor na barra de menus do macOS.
 
 Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento.
 
-### Opção 1: script de instalação — recomendado
+### Instalação
 
 Cole isto no Terminal:
 
@@ -39,59 +37,34 @@ bash install.sh
 
 Para instalar uma versão específica, informe o número: `bash install.sh 3.1.6`.
 
-Esta é a opção mais confiável, por causa de como o macOS trata downloads — [Primeira abertura no macOS](#primeira-abertura-no-macos) explica o motivo. O script confere o download contra o SHA-256 do `manifest.json` do release, recusa instalar uma cópia marcada pelo macOS, preserva suas preferências e a sessão da conta, e reabre o app se ele estava em execução.
+Depois, abra **Cursor Usage** em Aplicativos e entre na sua conta pela página oficial do Cursor. Clique no indicador perto do relógio para ver seu consumo; o app fica na barra de menus, sem um ícone permanente no Dock.
 
-### Opção 2: ZIP
+O script confere o download contra o SHA-256 do `manifest.json` do release, recusa instalar uma cópia marcada pelo macOS, preserva suas preferências e a sessão da conta, e reabre o app se ele estava em execução. É a única forma suportada de instalar uma cópia pronta — [Por que só o script](#por-que-só-o-script) explica isso.
 
-1. **[Baixe o ZIP do app](https://github.com/r-eiras/cursor-usage/releases/download/v3.1.6/CursorUsage-3.1.6-macOS-arm64.zip)** e dê dois cliques nele para extrair.
-2. Arraste **Cursor Usage.app** para **Aplicativos**.
-3. Abra **Cursor Usage** em Aplicativos e entre na sua conta pela página oficial do Cursor.
-4. Clique no indicador perto do relógio para ver seu consumo. O app fica na barra de menus, sem um ícone permanente no Dock.
+Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
 
-Use o download acima. Os arquivos **Source code** e **`-source.zip`** são para desenvolvimento, não para instalar o app.
+### Por que só o script
 
-### Opção 3: Homebrew
+Esta versão tem **assinatura ad hoc e não é notarizada**, e isso tem uma consequência concreta.
 
-Já usa o [Homebrew](https://brew.sh)? Copie estas duas linhas no Terminal:
+O macOS coloca um atributo chamado `com.apple.quarantine` nos arquivos gravados por navegadores e por gerenciadores de pacotes como o Homebrew Cask. É esse atributo que faz o Gatekeeper avaliar o app na primeira execução. Quando o Mac está configurado para permitir apps da App Store e de desenvolvedores identificados — o padrão, e o que Macs gerenciados normalmente exigem — a avaliação reprova uma assinatura ad hoc. O app é encerrado poucos segundos depois de abrir e **o bundle é movido para a Lixeira**, o que parece o app se apagando sozinho. Não é gerado relatório de falha, porque é encerramento por política, não travamento.
 
-```sh
-brew tap r-eiras/cursor-usage https://github.com/r-eiras/cursor-usage
-brew install --cask r-eiras/cursor-usage/cursor-usage
-```
+Ferramentas que gravam arquivos diretamente, como o `curl`, não colocam esse atributo, então uma cópia obtida pelo script de instalação nunca é avaliada. O script não desliga o Gatekeeper, não altera nenhuma configuração do sistema e nunca remove o atributo; em vez disso, recusa instalar uma cópia marcada.
 
-Depois, abra **Cursor Usage** em Aplicativos e entre na conta. O Homebrew baixa o mesmo app pronto; não compila o projeto nem instala os testes. Este é o tap próprio do projeto, não uma entrada no catálogo oficial do Homebrew.
+É por isso que o projeto não oferece mais link de download por navegador nem cask do Homebrew: os dois produzem uma cópia que o macOS remove na primeira abertura. O release continua publicando o ZIP do app, porque o script o baixa, mas baixar esse ZIP pelo navegador reproduz o problema.
 
-**O Homebrew Cask marca o que baixa**, e é justamente essa marca que faz o macOS bloquear este app — veja abaixo. O Homebrew removeu a opção `--no-quarantine` que antes contornava isso, então num Mac com a configuração de segurança padrão este caminho falha. Prefira a Opção 1.
+Se você acabar com uma cópia marcada, pode autorizá-la em **Ajustes do Sistema → Privacidade e Segurança**, na mensagem sobre o app bloqueado. Consulte [a orientação da Apple](https://support.apple.com/pt-br/102445).
 
-### Primeira abertura no macOS
-
-Esta versão tem **assinatura ad hoc e não é notarizada**, e vale dizer com clareza o que isso provoca.
-
-O macOS coloca um atributo chamado `com.apple.quarantine` nos arquivos gravados por navegadores e pelo Homebrew Cask. É esse atributo que faz o Gatekeeper avaliar o app na primeira execução. Quando o Mac está configurado para permitir apps da App Store e de desenvolvedores identificados — o padrão, e o que Macs gerenciados normalmente exigem — a avaliação reprova uma assinatura ad hoc. O app é encerrado poucos segundos depois de abrir e **o bundle é movido para a Lixeira**, o que parece o app se apagando sozinho.
-
-Ferramentas que gravam arquivos diretamente, como o `curl`, não colocam esse atributo, então uma cópia obtida pelo script de instalação nunca é avaliada. É por isso que a Opção 1 é a recomendada. O script não desliga o Gatekeeper, não altera nenhuma configuração do sistema e nunca remove o atributo; em vez disso, recusa instalar uma cópia marcada.
-
-Se você já tem uma cópia marcada, pode autorizá-la em **Ajustes do Sistema → Privacidade e Segurança**, na mensagem sobre o app bloqueado. Consulte [a orientação da Apple](https://support.apple.com/pt-br/102445).
-
-Notarizar o app com um Apple Developer ID é a única mudança que faz todos os caminhos funcionarem, inclusive Homebrew e download por navegador. Veja as [notas de distribuição](DISTRIBUTION.md).
+Notarizar o app com um Apple Developer ID é a única mudança que faria todos os caminhos funcionarem. Veja as [notas de distribuição](DISTRIBUTION.md).
 
 ### Como atualizar
 
 Abra **Configurações → App → Verificar atualizações** ou use o botão direito no indicador da barra. O app consulta os releases públicos deste projeto.
 
-Para atualizar no lugar, rode o script de instalação novamente; ele substitui o app e preserva preferências e sessão da conta:
+Para atualizar no lugar, rode o script de instalação novamente. Ele substitui o app e preserva preferências e sessão da conta:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
-```
-
-Se instalou pelo ZIP, baixe a nova versão, saia do app, substitua-o em Aplicativos e abra novamente. As preferências e a sessão da conta ficam preservadas.
-
-Se instalou pelo Homebrew, use:
-
-```sh
-brew update
-brew upgrade --cask r-eiras/cursor-usage/cursor-usage
 ```
 
 ## Por que ele existe

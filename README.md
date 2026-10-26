@@ -8,8 +8,6 @@ Your Cursor usage and remaining allowance, in the macOS menu bar.
 
 **Current version: 3.1.6 · build 12**
 
-### [⬇ Download Cursor Usage 3.1.6 for macOS](https://github.com/r-eiras/cursor-usage/releases/download/v3.1.6/CursorUsage-3.1.6-macOS-arm64.zip)
-
 **Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
@@ -19,9 +17,9 @@ Your Cursor usage and remaining allowance, in the macOS menu bar.
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the download.
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app.
 
-### Option 1: install script — recommended
+### Install
 
 Paste this into Terminal:
 
@@ -39,59 +37,34 @@ bash install.sh
 
 Add a version to install a specific one: `bash install.sh 3.1.6`.
 
-This is the most reliable option, because of how macOS treats downloads — [First launch on macOS](#first-launch-on-macos) explains why. The script checks the download against the SHA-256 in the release `manifest.json`, refuses to install a copy macOS has flagged, keeps your preferences and account session, and reopens the app if it was running.
+Then open **Cursor Usage** from Applications and sign in to Cursor on its official page. Click the indicator near the clock to see your usage; the app lives in the menu bar, without a permanent Dock icon.
 
-### Option 2: ZIP
+The script checks the download against the SHA-256 in the release `manifest.json`, refuses to install a copy macOS has flagged, keeps your preferences and account session, and reopens the app if it was running. It is the only supported way to install a prebuilt copy — [Why only the script](#why-only-the-script) explains that.
 
-1. **[Download the app ZIP](https://github.com/r-eiras/cursor-usage/releases/download/v3.1.6/CursorUsage-3.1.6-macOS-arm64.zip)** and double-click it to extract it.
-2. Drag **Cursor Usage.app** into **Applications**.
-3. Open **Cursor Usage** from Applications and sign in to Cursor in its official page.
-4. Click the indicator near the clock to see your usage. The app lives in the menu bar, without a permanent Dock icon.
+Developers can also build from source; see [Build and test](#build-and-test).
 
-Use the download above. The files named **Source code** or **`-source.zip`** are for developers, not installation.
+### Why only the script
 
-### Option 3: Homebrew
+This release is **ad hoc signed and not notarized**, and that has a concrete consequence.
 
-Already use [Homebrew](https://brew.sh)? Copy these two lines into Terminal:
+macOS attaches an attribute called `com.apple.quarantine` to files written by browsers and by package managers such as Homebrew Cask. That attribute is what makes Gatekeeper assess an app the first time it runs. When a Mac is set to allow apps from the App Store and identified developers — the default, and what managed Macs normally enforce — the assessment rejects an ad hoc signature. The app is terminated a few seconds after launch and **its bundle is moved to the Trash**, which looks like the app deleting itself. No crash report is written, because it is a policy termination rather than a crash.
 
-```sh
-brew tap r-eiras/cursor-usage https://github.com/r-eiras/cursor-usage
-brew install --cask r-eiras/cursor-usage/cursor-usage
-```
+Tools that write files directly, such as `curl`, do not set that attribute, so a copy fetched by the install script is never assessed. The script does not disable Gatekeeper, does not change any system setting, and never strips the attribute; it refuses to install a flagged copy instead.
 
-Then open **Cursor Usage** from Applications and sign in. Homebrew downloads the same prebuilt app; it does not compile it or install the project's tests. This is the project's own tap, not an entry in the official Homebrew catalog.
+This is why the project no longer offers a browser download link or a Homebrew cask: both produce a copy that macOS removes on first launch. The release still publishes the app ZIP, because the script downloads it, but downloading that ZIP in a browser reproduces the problem.
 
-**Homebrew Cask flags what it downloads**, which is exactly what makes macOS block this app — see below. Homebrew removed the `--no-quarantine` option that used to work around it, so on a Mac with the default security setting this route fails. Use Option 1 instead.
+If you do end up with a flagged copy, you can allow it yourself in **System Settings → Privacy & Security**, under the message about the blocked app. See [Apple's opening-app guidance](https://support.apple.com/en-us/102445).
 
-### First launch on macOS
-
-This release is **ad hoc signed and not notarized**, and that has a concrete consequence worth stating plainly.
-
-macOS attaches an attribute called `com.apple.quarantine` to files written by browsers and by Homebrew Cask. That attribute is what makes Gatekeeper assess an app the first time it runs. When a Mac is set to allow apps from the App Store and identified developers — the default, and what managed Macs normally enforce — the assessment rejects an ad hoc signature. The app is terminated a few seconds after launch and **its bundle is moved to the Trash**, which looks like the app deleting itself.
-
-Tools that write files directly, such as `curl`, do not set that attribute, so a copy fetched by the install script is never assessed. That is why Option 1 is the recommended route. The script does not disable Gatekeeper, does not change any system setting, and never strips the attribute; it refuses to install a flagged copy instead.
-
-If you already have a flagged copy, you can allow it yourself in **System Settings → Privacy & Security**, under the message about the blocked app. See [Apple's opening-app guidance](https://support.apple.com/en-us/102445).
-
-Notarizing the app with an Apple Developer ID is the only change that makes every route work, including Homebrew and browser downloads. See the [distribution notes](DISTRIBUTION.md).
+Notarizing the app with an Apple Developer ID is the only change that would make every route work. See the [distribution notes](DISTRIBUTION.md).
 
 ### Update
 
 Open **Settings → App → Check for Updates** or right-click the menu-bar indicator. The app checks this project's public GitHub releases.
 
-To update in place, run the install script again; it replaces the app and keeps your preferences and account session:
+To update in place, run the install script again. It replaces the app and keeps your preferences and account session:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
-```
-
-For a ZIP installation, download the new ZIP, quit the app, replace it in Applications, and reopen it. Your local preferences and account session are kept.
-
-For a Homebrew installation, use:
-
-```sh
-brew update
-brew upgrade --cask r-eiras/cursor-usage/cursor-usage
 ```
 
 ## Why this app exists
