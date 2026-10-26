@@ -21,7 +21,27 @@ Seu consumo e saldo do Cursor na barra de menus do macOS.
 
 Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento.
 
-### Opção 1: ZIP — o jeito mais simples
+### Opção 1: script de instalação — recomendado
+
+Cole isto no Terminal:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
+```
+
+Prefere ler o script antes de executar? Baixe primeiro:
+
+```sh
+curl -fsSL -O https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh
+less install.sh
+bash install.sh
+```
+
+Para instalar uma versão específica, informe o número: `bash install.sh 3.1.6`.
+
+Esta é a opção mais confiável, por causa de como o macOS trata downloads — [Primeira abertura no macOS](#primeira-abertura-no-macos) explica o motivo. O script confere o download contra o SHA-256 do `manifest.json` do release, recusa instalar uma cópia marcada pelo macOS, preserva suas preferências e a sessão da conta, e reabre o app se ele estava em execução.
+
+### Opção 2: ZIP
 
 1. **[Baixe o ZIP do app](https://github.com/r-eiras/cursor-usage/releases/download/v3.1.6/CursorUsage-3.1.6-macOS-arm64.zip)** e dê dois cliques nele para extrair.
 2. Arraste **Cursor Usage.app** para **Aplicativos**.
@@ -30,7 +50,7 @@ Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de des
 
 Use o download acima. Os arquivos **Source code** e **`-source.zip`** são para desenvolvimento, não para instalar o app.
 
-### Opção 2: Homebrew
+### Opção 3: Homebrew
 
 Já usa o [Homebrew](https://brew.sh)? Copie estas duas linhas no Terminal:
 
@@ -41,13 +61,31 @@ brew install --cask r-eiras/cursor-usage/cursor-usage
 
 Depois, abra **Cursor Usage** em Aplicativos e entre na conta. O Homebrew baixa o mesmo app pronto; não compila o projeto nem instala os testes. Este é o tap próprio do projeto, não uma entrada no catálogo oficial do Homebrew.
 
+**O Homebrew Cask marca o que baixa**, e é justamente essa marca que faz o macOS bloquear este app — veja abaixo. O Homebrew removeu a opção `--no-quarantine` que antes contornava isso, então num Mac com a configuração de segurança padrão este caminho falha. Prefira a Opção 1.
+
 ### Primeira abertura no macOS
 
-Esta versão tem **assinatura ad hoc e não é notarizada**. O macOS pode bloquear o download ou exigir uma decisão explícita do usuário. Instalar pelo Homebrew não elimina essa limitação. Consulte [a orientação da Apple](https://support.apple.com/pt-br/102445) e [as notas de distribuição](DISTRIBUTION.md).
+Esta versão tem **assinatura ad hoc e não é notarizada**, e vale dizer com clareza o que isso provoca.
+
+O macOS coloca um atributo chamado `com.apple.quarantine` nos arquivos gravados por navegadores e pelo Homebrew Cask. É esse atributo que faz o Gatekeeper avaliar o app na primeira execução. Quando o Mac está configurado para permitir apps da App Store e de desenvolvedores identificados — o padrão, e o que Macs gerenciados normalmente exigem — a avaliação reprova uma assinatura ad hoc. O app é encerrado poucos segundos depois de abrir e **o bundle é movido para a Lixeira**, o que parece o app se apagando sozinho.
+
+Ferramentas que gravam arquivos diretamente, como o `curl`, não colocam esse atributo, então uma cópia obtida pelo script de instalação nunca é avaliada. É por isso que a Opção 1 é a recomendada. O script não desliga o Gatekeeper, não altera nenhuma configuração do sistema e nunca remove o atributo; em vez disso, recusa instalar uma cópia marcada.
+
+Se você já tem uma cópia marcada, pode autorizá-la em **Ajustes do Sistema → Privacidade e Segurança**, na mensagem sobre o app bloqueado. Consulte [a orientação da Apple](https://support.apple.com/pt-br/102445).
+
+Notarizar o app com um Apple Developer ID é a única mudança que faz todos os caminhos funcionarem, inclusive Homebrew e download por navegador. Veja as [notas de distribuição](DISTRIBUTION.md).
 
 ### Como atualizar
 
-Abra **Configurações → App → Verificar atualizações** ou use o botão direito no indicador da barra. O app consulta os releases públicos deste projeto. Se instalou pelo ZIP, baixe a nova versão, saia do app, substitua-o em Aplicativos e abra novamente. As preferências e a sessão da conta ficam preservadas.
+Abra **Configurações → App → Verificar atualizações** ou use o botão direito no indicador da barra. O app consulta os releases públicos deste projeto.
+
+Para atualizar no lugar, rode o script de instalação novamente; ele substitui o app e preserva preferências e sessão da conta:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
+```
+
+Se instalou pelo ZIP, baixe a nova versão, saia do app, substitua-o em Aplicativos e abra novamente. As preferências e a sessão da conta ficam preservadas.
 
 Se instalou pelo Homebrew, use:
 

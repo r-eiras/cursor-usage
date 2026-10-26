@@ -13,6 +13,20 @@ The current build uses an ad hoc signature. Developer ID signing and notarizatio
 
 Publishing on GitHub does not require App Store submission or Apple Developer Program membership. The current app is ad hoc signed and not notarized: a browser-downloaded copy may be blocked by Gatekeeper or require an explicit user decision. A successful local launch is not proof of a warning-free downloaded installation. This project does not disable Gatekeeper or alter download quarantine.
 
+Observed behavior on macOS 26 with the default "App Store and identified developers" policy: a copy carrying `com.apple.quarantine` is terminated a few seconds after launch and its bundle is moved to the Trash. The system log records `Gatekeeper policy blocked execution` from `launchd` and `Security policy would not allow process` from the kernel's `AppleSystemPolicy`. No crash report is produced, because this is a policy termination rather than a crash. Expect this on any Mac that has not been set to allow the app explicitly.
+
+## Install script
+
+`install.sh` is the route the README recommends to users. It resolves the latest release through the GitHub API, or takes a version argument, downloads the app ZIP and `manifest.json` with `curl`, compares the archive against the manifest SHA-256, verifies the signature, installs to Applications with `ditto`, and reopens the app when it was already running. It exits non-zero on any failure and leaves an existing installation untouched.
+
+`curl` does not set `com.apple.quarantine`, so a copy it fetches is not assessed by Gatekeeper. This avoids the assessment; it does not pass it. The script never removes the attribute and never changes a system setting: it aborts if the download or the installed bundle carries it. Keep that behavior, because stripping the attribute would turn a documented limitation into a silent security bypass on the user's machine.
+
+This is a workaround for the missing notarization, not a substitute for it. Signing with a Developer ID and notarizing is the only change that makes browser downloads and Homebrew work for every user. The tooling for it (`notarytool`, `stapler`) ships with the Command Line Tools; what is missing is Apple Developer Program membership and a Developer ID Application certificate.
+
+Keep the version in the README download links, the cask, and `install.sh` examples in sync with each release.
+
+## Packaging
+
 Run `python3 package_release.py` after building. Use the following release assets:
 
 - `CursorUsage-<version>-macOS-<architecture>.zip`: the user download; only the compiled app, Cursor image, bundle metadata and signature. No tests, source code, build scripts, account data, or development dependencies.
@@ -30,3 +44,5 @@ A clean-account login, notification permission prompt, reboot/login startup, vis
 ## Homebrew tap
 
 `Casks/cursor-usage.rb` is the project-owned cask, served from this repository using an explicit tap URL. It downloads the release ZIP and checks SHA-256, requires Apple Silicon and macOS 14+, and installs only the app. Update its version and checksum for every release after creating the app ZIP. Keep the direct README download links in sync. This tap does not imply acceptance into the official Homebrew catalog or bypass macOS security protections.
+
+Homebrew Cask applies `com.apple.quarantine` to what it installs, so this route hits the Gatekeeper rejection described above. The `--no-quarantine` option that used to work around it is gone: Homebrew 7.0.10 answers `Error: invalid option: --no-quarantine`, and a cask cannot opt out on the user's behalf. Until the app is notarized, treat the cask as unusable on a Mac with the default policy and point users to `install.sh`. Do not document an `xattr -d` step as a fix.
