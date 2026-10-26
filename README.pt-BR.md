@@ -22,8 +22,7 @@ bash install.sh
 
 Depois, abra **Cursor Usage** em Aplicativos e entre na sua conta pela página oficial do Cursor. O indicador aparece na barra de menus, perto do relógio. Não há ícone permanente no Dock.
 
-> ⚠️ **Não baixe o app pelo navegador e não instale pelo Homebrew.**
-> Os dois entregam uma cópia que o macOS apaga na primeira vez que você abre. Isso não é defeito do app — [Por que só este comando](#por-que-só-este-comando) explica o que acontece.
+Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [Por que só este comando](#por-que-só-este-comando) traz o motivo, se você quiser.
 
 **Versão atual: 3.1.6 · build 12 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 

@@ -22,8 +22,7 @@ bash install.sh
 
 Then open **Cursor Usage** from Applications and sign in on Cursor's official page. The indicator appears in the menu bar, near the clock. There is no permanent Dock icon.
 
-> ⚠️ **Do not download the app in a browser, and do not install it with Homebrew.**
-> Both hand you a copy that macOS deletes the first time you open it. That is not a bug in the app — [Why only this command](#why-only-this-command) explains what happens.
+That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
 **Current version: 3.1.6 · build 12 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
