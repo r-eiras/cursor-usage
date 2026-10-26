@@ -17,6 +17,11 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private var window: NSWindow!
     private var webView: WKWebView?
     private let accountStorage = AccountSessionStorage(folder: AppFolder.url)
+    private let browserSessions = BrowserSessionStore(folder: AppFolder.url)
+    private var browserSignIn: Task<Void, Never>?
+    private var browserButton: NSButton?
+    private var awaitingBrowserSession = false
+    private var lastRenewalCheck = Date.distantPast
     private var isSignedOut = false
     private var signingOut = false
     private var loginPaused = false
@@ -84,7 +89,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         exporter.onFailure = { [weak self] value in self?.exportInFlight = false; self?.historySettled = true; self?.analyticsMessage = value; self?.render() }
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = L("Cursor Usage — entre no painel oficial do Cursor", "Cursor Usage — sign in to the official Cursor dashboard")
-        window.isReleasedWhenClosed = false; window.delegate = self; window.center()
+        window.isReleasedWhenClosed = false; window.delegate = self; window.center(); addBrowserSignInAccessory()
         render(); refresh()
         if CommandLine.arguments.contains("--preferences") { showPreferences() }
         else if !isSignedOut && (history.isEmpty || CommandLine.arguments.contains("--connect")) { showDashboard() }
@@ -110,6 +115,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     }
     private func tick() {
         if !isSignedOut && !loginPaused && Date().timeIntervalSince(lastRefresh) >= preferences.syncInterval.seconds && (!window.isVisible || webView?.url?.path == dashboard.path) { refresh() }
+        if Date().timeIntervalSince(lastRenewalCheck) >= 3600 { lastRenewalCheck = Date(); renewBrowserSessionIfNeeded() }
         readUsage(); releasePageIfSynced(); render()
     }
     @objc private func togglePopover() {
@@ -204,6 +210,72 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         if pageIdle || connectionFailed || webView == nil { refresh() }
     }
 
+    // The embedded page cannot show a passkey from Cursor's identity providers; the default browser can.
+    private func addBrowserSignInAccessory() {
+        browserButton = BrowserSignInButton.install(in: window, target: self, action: #selector(toggleBrowserSignIn)); updateBrowserButton()
+    }
+    private func updateBrowserButton() { if let browserButton { BrowserSignInButton.update(browserButton, waiting: browserSignIn != nil) } }
+    @objc private func toggleBrowserSignIn() {
+        if let task = browserSignIn { task.cancel(); browserSignIn = nil; updateBrowserButton(); return }
+        message = L("Conclua o login no navegador. O app atualiza sozinho.", "Finish signing in in your browser. The app updates by itself."); render()
+        let flow = BrowserSignIn(open: { url in DispatchQueue.main.async { NSWorkspace.shared.open(url) } })
+        browserSignIn = Task { [weak self] in
+            do {
+                let session = try await flow.run()
+                guard let self, !Task.isCancelled else { return }
+                self.browserSignIn = nil; self.updateBrowserButton(); self.adopt(session)
+            } catch {
+                guard let self, !(error is CancellationError) else { return }
+                self.browserSignIn = nil; self.updateBrowserButton()
+                switch error as? BrowserSignInError {
+                case .timedOut?: self.reportBrowserFailure(L("O tempo para concluir o login no navegador acabou. Tente de novo.", "The time to finish signing in in the browser ran out. Try again."))
+                case .rejected?: self.reportBrowserFailure(L("O Cursor respondeu de um jeito que o app não reconhece. Entre nesta janela, por exemplo com e-mail e código.", "Cursor answered in a way the app does not recognize. Sign in in this window, for example with email and a code."))
+                default: self.reportBrowserFailure(L("Não foi possível falar com o Cursor. Verifique a conexão e tente de novo.", "Could not reach Cursor. Check your connection and try again."))
+                }
+            }
+        }
+        updateBrowserButton()
+    }
+    // The browser session becomes the dashboard's own cookie, so reading the quota and history stays unchanged.
+    private func adopt(_ session: BrowserSession) {
+        guard let cookie = session.cookie() else { browserSessionRejected(); return }
+        try? browserSessions.save(session)
+        WKWebsiteDataStore.default().httpCookieStore.setCookie(cookie) { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                if self.isSignedOut { try? self.accountStorage.reconnect(); self.isSignedOut = false }
+                self.awaitingBrowserSession = true; self.loginPaused = false; self.connectionFailed = false
+                self.message = L("Login no navegador concluído. Buscando sua cota…", "Browser sign-in complete. Fetching your quota…")
+                self.refresh()
+            }
+        }
+    }
+    private func browserSessionRejected() {
+        awaitingBrowserSession = false; browserSessions.delete()
+        reportBrowserFailure(L("O Cursor não aceitou o login feito no navegador. Entre nesta janela, por exemplo com e-mail e código.", "Cursor did not accept the browser sign-in. Sign in in this window, for example with email and a code."))
+    }
+    private func reportBrowserFailure(_ text: String) {
+        let alert = NSAlert(); alert.icon = CursorMark.appImage(size: 64, template: false)
+        alert.messageText = L("Login pelo navegador não concluído", "Browser sign-in not completed"); alert.informativeText = text
+        if window.isVisible { alert.beginSheetModal(for: window) } else { NSApp.activate(ignoringOtherApps: true); alert.runModal() }
+    }
+    // Browser sign-ins last about two months; renewing a day ahead keeps the dashboard cookie from lapsing.
+    private func renewBrowserSessionIfNeeded() {
+        guard !isSignedOut, let session = browserSessions.load(), session.needsRenewal() else { return }
+        let flow = BrowserSignIn(open: { _ in })
+        Task { [weak self] in
+            let outcome = await flow.renew(session)
+            guard let self, !self.isSignedOut else { return }
+            switch outcome {
+            case .renewed(let renewed):
+                try? self.browserSessions.save(renewed)
+                if let cookie = renewed.cookie() { await WKWebsiteDataStore.default().httpCookieStore.setCookie(cookie) }
+            case .signedOut: self.browserSessions.delete()
+            case .failed: break
+            }
+        }
+    }
+
     private func pauseLogin() {
         loginPaused = true; refreshGeneration += 1; exporter.cancelAll(); exportInFlight = false; releaseBrowser()
         message = L("Conecte sua conta para atualizar a cota.", "Connect your account to update the quota."); render()
@@ -246,7 +318,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
                 self.render()
                 return
             }
-            let firstConnection = self.history.isEmpty
+            let firstConnection = self.history.isEmpty || self.awaitingBrowserSession; self.awaitingBrowserSession = false
             self.lastRead = self.sourceLoadedAt
             self.message = QuotaMessages.synced("Cursor")
             // Monthly cycle: a new reset a month ahead after the previous one passed is a renewal.
@@ -360,6 +432,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             let alert = NSAlert(); alert.messageText = L("Não foi possível desconectar", "Could not disconnect")
             alert.informativeText = L("O histórico foi preservado. Tente novamente.", "Your history was preserved. Please try again."); alert.runModal(); return
         }
+        browserSignIn?.cancel(); browserSignIn = nil; browserSessions.delete(); awaitingBrowserSession = false; updateBrowserButton()
         isSignedOut = true; signingOut = true; refreshGeneration += 1
         exporter.cancelAll(); exportInFlight = false; historySettled = true; closePopovers(); window.orderOut(nil); releaseBrowser()
         history.removeAll(); dataset = nil; lastRead = .distantPast; notifications.resetAccount()
@@ -452,7 +525,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
                 self.preferences = value; AppLanguage.current = value.language; self.card.localize()
                 if changedLanguage { DispatchQueue.main.async { [weak self] in self?.preferencesPanel = nil } }
                 self.window.title = L("Cursor Usage — entre no painel oficial do Cursor", "Cursor Usage — sign in to the official Cursor dashboard")
-                self.notifications.requestPermissionIfNeeded(preferences: value); self.render(); return true
+                self.updateBrowserButton(); self.notifications.requestPermissionIfNeeded(preferences: value); self.render(); return true
             }
             preferencesPanel = panel
         }
@@ -464,6 +537,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showPreferences(); return false }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard !pageIdle, webView === self.webView else { return }
+        if awaitingBrowserSession, webView.url?.scheme == "https", DashboardLocation.destination(for: webView.url) == .signIn { browserSessionRejected() }
         if !window.isVisible && DashboardLocation.destination(for: webView.url) == .signIn { pauseLogin(); return }
         connectionFailed = false; sourceLoadedAt = Date(); readUsage()
     }

@@ -18,7 +18,7 @@
 #
 # Usage
 #   ./install.sh              # install the latest release
-#   ./install.sh 3.1.6        # install a specific version
+#   ./install.sh 3.2.0        # install a specific version
 
 set -euo pipefail
 

@@ -22,9 +22,11 @@ bash install.sh
 
 Depois, abra **Cursor Usage** em Aplicativos e entre na sua conta pela página oficial do Cursor. O indicador aparece na barra de menus, perto do relógio. Não há ícone permanente no Dock.
 
+Se a página de login dessa janela não funcionar — por exemplo, sua conta Google pede uma passkey — clique em **Entrar pelo navegador (passkey)**, no canto superior direito da janela. O login do Cursor abre no seu navegador padrão, onde passkeys funcionam, e o app recebe a sessão quando você terminar. [Por que a passkey não funciona dentro da janela](#login-com-passkey).
+
 Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [Por que só este comando](#por-que-só-este-comando) traz o motivo, se você quiser.
 
-**Versão atual: 3.1.6 · build 12 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
+**Versão atual: 3.2.0 · build 13 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 
 | Você precisa de | Requisito |
 | --- | --- |
@@ -33,7 +35,7 @@ Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [P
 | Conta | Uma conta do Cursor com uso disponível no painel oficial. |
 | Conexão | Internet para entrar na conta e atualizar o consumo. |
 
-Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.1.6`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
+Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.2.0`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
 
 ### O app desaparece, ou nenhum ícone aparece
 
@@ -63,6 +65,14 @@ Ferramentas que gravam arquivos diretamente, como o `curl`, não colocam esse at
 É por isso que este projeto não oferece link de download por navegador nem cask do Homebrew: os dois produzem uma cópia que o macOS remove na primeira abertura. O release continua publicando o ZIP do app, porque o script o baixa, mas baixar esse ZIP pelo navegador reproduz o problema.
 
 Notarizar o app com um Apple Developer ID é a única mudança que faria todos os caminhos funcionarem. Veja as [notas de distribuição](DISTRIBUTION.md).
+
+### Login com passkey
+
+O app lê o seu consumo no painel do Cursor, que ele abre numa janela própria. O macOS só deixa o navegador embutido de um app usar passkeys em sites vinculados a esse app, então uma passkey do Google, do GitHub, da Apple ou do login da sua empresa nunca aparece ali, e o login para na etapa da passkey.
+
+**Entrar pelo navegador (passkey)**, no canto superior direito da janela de login, faz o login do próprio Cursor no seu navegador padrão, do mesmo jeito que o editor do Cursor entra. Ali a passkey funciona. Quando você termina, o app recebe a sessão e continua lendo o painel normalmente.
+
+A janela continua sendo a primeira opção, porque depende só das páginas públicas do Cursor. O login pelo navegador usa endpoints que os apps do próprio Cursor chamam, mas que o Cursor não documenta. Se o Cursor mudá-los, entre pela janela com e-mail e código.
 
 ### Como atualizar
 
@@ -138,7 +148,7 @@ O app pronto não exige instalar Python, Node.js, Electron ou pacotes de terceir
 
 O app usa a sessão própria do WebKit para abrir `https://cursor.com/dashboard/usage`. Lê o resumo de cota mensal e importa o CSV oficial. O parsing acontece em segundo plano, e o WebView é liberado entre sincronizações concluídas, preservando a sessão.
 
-Métricas e preferências ficam em `~/Library/Application Support/CursorUsage/`. E-mails e repositórios do CSV são descartados; um digest identifica a conta nas métricas importadas. CSVs com várias contas são recusados. Os arquivos temporários são removidos após a importação. Observações de cota ficam por até 40 dias; arquivos de contas desconectadas permanecem no arquivo local até serem removidos.
+Métricas e preferências ficam em `~/Library/Application Support/CursorUsage/`. E-mails e repositórios do CSV são descartados; um digest identifica a conta nas métricas importadas. CSVs com várias contas são recusados. Os arquivos temporários são removidos após a importação. Observações de cota ficam por até 40 dias; arquivos de contas desconectadas permanecem no arquivo local até serem removidos. Depois de um login pelo navegador, a sessão fica em `browser-session.json` nessa pasta, legível só pelo seu usuário, e é renovada cerca de um dia antes de expirar. Desconectar a conta apaga esse arquivo.
 
 O app não pede chave de API, não executa outra ferramenta de IA para consultar a cota e não processa códigos de MFA. O código próprio não adiciona um serviço de analytics ou telemetria; o painel oficial e os provedores de login mantêm seu comportamento de rede.
 
@@ -146,7 +156,7 @@ Não publique cookies, exports brutos, URLs de autenticação ou arquivos pessoa
 
 ## Build, testes e distribuição
 
-Versão atual: **3.1.6, build 12**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
+Versão atual: **3.2.0, build 13**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
 
 ```sh
 python3 build.py

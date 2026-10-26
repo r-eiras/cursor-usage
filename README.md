@@ -22,9 +22,11 @@ bash install.sh
 
 Then open **Cursor Usage** from Applications and sign in on Cursor's official page. The indicator appears in the menu bar, near the clock. There is no permanent Dock icon.
 
+If the sign-in page in that window doesn't work — for example, your Google account asks for a passkey — click **Sign in with browser (passkey)** at the top right of the window. Cursor's login opens in your default browser, where passkeys work, and the app picks up the session when you finish. [Why a passkey can't work inside the window](#signing-in-with-a-passkey).
+
 That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
-**Current version: 3.1.6 · build 12 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
+**Current version: 3.2.0 · build 13 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
 | --- | --- |
@@ -33,7 +35,7 @@ That command is the way to install the app, and the same command updates it late
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.1.6`. Developers can build from source instead; see [Build and test](#build-and-test).
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.2.0`. Developers can build from source instead; see [Build and test](#build-and-test).
 
 ### The app vanishes, or no icon appears
 
@@ -63,6 +65,14 @@ Tools that write files directly, such as `curl`, do not set that attribute, so a
 That is why this project offers no browser download link and no Homebrew cask: both produce a copy macOS removes on first launch. The release still publishes the app ZIP, because the script downloads it, but downloading that ZIP in a browser reproduces the problem.
 
 Notarizing the app with an Apple Developer ID is the only change that would make every route work. See the [distribution notes](DISTRIBUTION.md).
+
+### Signing in with a passkey
+
+The app reads your usage from Cursor's dashboard, which it opens in its own window. macOS lets an app's built-in browser use passkeys only for websites tied to that app, so a passkey that belongs to Google, GitHub, Apple or your company's sign-in never appears there, and the sign-in stalls at the passkey step.
+
+**Sign in with browser (passkey)**, at the top right of the sign-in window, runs Cursor's own login in your default browser instead, the same way the Cursor editor signs in. Passkeys work there. When you finish, the app receives the session and goes on reading the dashboard as usual.
+
+The window stays the first option, because it relies only on Cursor's public pages. The browser sign-in uses endpoints that Cursor's own apps call but Cursor does not document. If Cursor changes them, sign in in the window with email and a code.
 
 ### Update
 
@@ -143,6 +153,7 @@ No third-party runtime packages, Node.js, Electron, or Python installation are r
 - Usage metrics and preferences stay in `~/Library/Application Support/CursorUsage/`.
 - The app does not request an API key or run another AI tool to collect usage.
 - Authentication happens in the official Cursor flow. The app does not handle MFA codes itself.
+- After a browser sign-in, the session is kept in `browser-session.json` in that folder, readable only by your user, and renewed about a day before it expires. Disconnecting the account deletes it.
 - Email and repository columns from the CSV are discarded. A digest identifies the account in imported metrics; exports containing multiple accounts are rejected.
 - Temporary CSV files are removed after import. Quota observations are retained for up to 40 days; disconnected account metrics remain in a local archive until removed.
 - The project's own code adds no analytics or telemetry service. The official dashboard and sign-in providers retain their own network behavior.
@@ -151,7 +162,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.1.6, build 12**.
+Current version: **3.2.0, build 13**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 
