@@ -26,7 +26,7 @@ Se a página de login dessa janela não funcionar — por exemplo, sua conta Goo
 
 Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [Por que só este comando](#por-que-só-este-comando) traz o motivo, se você quiser.
 
-**Versão atual: 3.3.1 · build 15 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
+**Versão atual: 3.4.0 · build 16 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 
 | Você precisa de | Requisito |
 | --- | --- |
@@ -35,7 +35,7 @@ Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [P
 | Conta | Uma conta do Cursor com uso disponível no painel oficial. |
 | Conexão | Internet para entrar na conta e atualizar o consumo. |
 
-Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.3.1`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
+Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.4.0`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
 
 ### O app desaparece, ou nenhum ícone aparece
 
@@ -102,6 +102,7 @@ Este é um projeto independente, sem vínculo ou endosso da Anysphere.
 - Resumo de gastos, requisições, tokens informados e ranking de modelos.
 - Períodos: hoje, semana corrente, últimos três ou sete dias e mês corrente. O padrão de uma instalação nova é o mês corrente.
 - Limite pessoal de gastos, avisos de ciclo/cota diária calculada, som opcional e aviso de renovação.
+- Avisos por modelo: primeiro uso de um modelo, modelo gastando bem acima do seu modelo mais caro e metas para os modelos que você escolher.
 - Opção de desconectar, iniciar com o Mac e interface em português brasileiro ou inglês.
 
 **A cota de hoje é calculada pelo app; não é uma cota diária oficial do Cursor.** O orçamento disponível é dividido entre os dias restantes do ciclo. Um limite pessoal muda essa referência de planejamento: não altera seu plano e não bloqueia cobranças.
@@ -113,7 +114,7 @@ Algumas requisições do CSV não informam tokens. Elas continuam contando como 
 Clique no indicador, ou passe o mouse quando essa opção estiver habilitada. O cartão tem três abas:
 
 - **Resumo:** gastos e atividade do período escolhido, além de informações de ritmo.
-- **Modelos:** ranking por gastos ou tokens informados.
+- **Modelos:** ranking por gastos ou tokens informados. Pare o mouse sobre um modelo para ver todos os números dele ao lado do cartão: gasto e fatia, requisições, custo médio por requisição e cada tipo de token.
 - **Meta:** limite pessoal, planejamento diário e avisos.
 
 O período selecionado muda o relatório histórico. A cota do ciclo na barra continua sendo a referência da assinatura. O botão direito abre o menu com Sobre, Configurações, desconectar, atualizações e sair.
@@ -123,12 +124,22 @@ O período selecionado muda o relatório histórico. A cota do ciclo na barra co
 | Aba | Opções |
 | --- | --- |
 | **Barra** | Formato dos valores, consumo/saldo, densidade, hover/clique, ícone, rótulos Hoje/Ciclo e prévia. |
-| **Avisos** | Limite pessoal, porcentagem de aviso no ciclo e no diário calculado, sons e renovação. |
+| **Avisos** | Limite pessoal, porcentagem de aviso no ciclo e no diário calculado, sons, renovação e avisos por modelo com modelos monitorados. |
 | **App** | Sincronização, idioma, início com o Mac, Sobre e situação das atualizações. |
 
 **Salvar** aplica as mudanças; **Cancelar** descarta. Iniciar com o Mac é aplicado imediatamente. Mantenha o app num local estável antes de habilitar essa opção. Abrir o cartão da barra esconde temporariamente as configurações sem salvar o rascunho.
 
-Os avisos começam desligados e precisam de permissão do macOS. O app deve estar aberto, e o modo Foco pode afetar a entrega. A mesma leitura não gera avisos repetidos para o mesmo limite. Sem limite pessoal, o aviso do ciclo usa a cota do Cursor.
+Os avisos de consumo começam desligados. Os avisos por modelo começam ligados, porque não precisam de configuração; o primeiro pede permissão de notificação ao macOS uma vez. O app deve estar aberto, e o modo Foco pode afetar a entrega. A mesma leitura não gera avisos repetidos para o mesmo limite. Sem limite pessoal, o aviso do ciclo usa a cota do Cursor.
+
+### Avisos por modelo
+
+A cota do Cursor é uma só para todos os modelos, então estes avisos mostram para onde o dinheiro vai, e não um limite do Cursor.
+
+- **Primeiro uso de um modelo.** Quando aparece um modelo que esta conta nunca usou, chega uma notificação com quanto ele já gastou e a ação **Monitorar este modelo**, que abre as Configurações com ele já na lista. A primeira sincronização só aprende os modelos que você usa, para não chegar uma enxurrada de avisos ao instalar o app.
+- **Gasto acima do seu modelo mais caro.** O app aprende quanto cada modelo costuma gastar em 15 minutos, pela mediana dos últimos 14 dias, e usa o mais caro como referência. Se algum modelo gastar mais que essa referência mais um limite que você escolhe — 50% por padrão — nos últimos 15 minutos, chega um aviso naquele dia, com os dois modelos e, quando for o caso, quanto cada requisição custa a mais. Ele precisa de algumas sessões de histórico antes de conseguir comparar, e ignora picos abaixo de US$ 1.
+- **Modelos monitorados.** Escolha modelos entre os que você usa e dê a cada um um limite por dia, por ciclo ou os dois. Campo vazio significa sem limite.
+
+Os dados por modelo vêm do histórico que o app importa, então esses avisos chegam dentro do intervalo de sincronização, e não na hora.
 
 Para trocar de conta, use **Desconectar conta** nas configurações ou no menu do botão direito; depois conecte novamente. A ação limpa a sessão de website deste app e arquiva as métricas da conta localmente, preservando as preferências visuais.
 
@@ -150,7 +161,7 @@ O app pronto não exige instalar Python, Node.js, Electron ou pacotes de terceir
 
 O app usa a sessão própria do WebKit para abrir `https://cursor.com/dashboard/usage`. Lê o resumo de cota mensal e importa o CSV oficial. O parsing acontece em segundo plano, e o WebView é liberado entre sincronizações concluídas, preservando a sessão.
 
-Métricas e preferências ficam em `~/Library/Application Support/CursorUsage/`. E-mails e repositórios do CSV são descartados; um digest identifica a conta nas métricas importadas. CSVs com várias contas são recusados. Os arquivos temporários são removidos após a importação. Observações de cota ficam por até 40 dias; arquivos de contas desconectadas permanecem no arquivo local até serem removidos. Depois de um login pelo navegador, a sessão fica em `browser-session.json` nessa pasta, legível só pelo seu usuário, e é renovada cerca de um dia antes de expirar. Desconectar a conta apaga esse arquivo.
+Métricas e preferências ficam em `~/Library/Application Support/CursorUsage/`. E-mails e repositórios do CSV são descartados; um digest identifica a conta nas métricas importadas. CSVs com várias contas são recusados. Os arquivos temporários são removidos após a importação. Observações de cota ficam por até 40 dias; arquivos de contas desconectadas permanecem no arquivo local até serem removidos. Os nomes dos modelos que esta conta já usou ficam em `models-seen.json`, para reconhecer um primeiro uso; ao desconectar, o arquivo é arquivado com as outras métricas da conta. Depois de um login pelo navegador, a sessão fica em `browser-session.json` nessa pasta, legível só pelo seu usuário, e é renovada cerca de um dia antes de expirar. Desconectar a conta apaga esse arquivo.
 
 O app não pede chave de API, não executa outra ferramenta de IA para consultar a cota e não processa códigos de MFA. O código próprio não adiciona um serviço de analytics ou telemetria; o painel oficial e os provedores de login mantêm seu comportamento de rede.
 
@@ -158,7 +169,7 @@ Não publique cookies, exports brutos, URLs de autenticação ou arquivos pessoa
 
 ## Build, testes e distribuição
 
-Versão atual: **3.3.1, build 15**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
+Versão atual: **3.4.0, build 16**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
 
 ```sh
 python3 build.py

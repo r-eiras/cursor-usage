@@ -14,6 +14,7 @@ import AppKit
     var startupState: (() -> LoginItemState)?
     var onStartupChange: ((Bool) throws -> Void)?
     var onStartupSettings: (() -> Void)?
+    var onModelChoices: (() -> [ModelAlertControls.Choice])?
     private let mode = NSPopUpButton(), basis = NSPopUpButton()
     private let iconStyle = NSPopUpButton(), opening = NSPopUpButton(), density = NSPopUpButton(), sync = NSPopUpButton(), language = NSPopUpButton()
     private let showIcon = NSButton(checkboxWithTitle: L("Mostrar ícone", "Show icon"), target: nil, action: nil)
@@ -24,7 +25,9 @@ import AppKit
     private let disconnect = NSButton(image: NSImage(systemSymbolName: "rectangle.portrait.and.arrow.right", accessibilityDescription: nil)!, target: nil, action: nil)
     private let tabs = NSSegmentedControl(labels: [L("Barra", "Menu bar"), L("Avisos", "Alerts"), L("App", "App")], trackingMode: .selectOne, target: nil, action: nil)
     private let alerts = CursorAlertControls()
-    private let scroll = NSScrollView()
+    private let models = ModelAlertControls()
+    private var alertsSection: NSView?
+    private let scroll = OverlayScrollView()
     private var sections: [NSView] = []
     private var original = AppPreferences()
     private var suspendedForMenuBar = false
@@ -53,49 +56,65 @@ import AppKit
         disconnect.toolTip = L("Desconectar conta neste app", "Disconnect this app's account"); disconnect.setAccessibilityLabel(L("Desconectar conta", "Disconnect account")); disconnect.identifier = NSUserInterfaceItemIdentifier("disconnectAccount"); content.addSubview(disconnect)
         tabs.frame = NSRect(x: 22, y: 88, width: 476, height: 28); tabs.selectedSegment = 0; tabs.segmentStyle = .rounded; tabs.font = .systemFont(ofSize: 12, weight: .medium)
         tabs.target = self; tabs.action = #selector(selectTab); content.addSubview(tabs)
-        let bar = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 400))
-        let alertsSection = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 482))
-        let app = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 370))
+        let bar = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 404))
+        let alertsSection = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 482)); self.alertsSection = alertsSection
+        let app = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 380))
         sections = [bar, alertsSection, app]; for section in sections { content.addSubview(section) }
-        label(L("Na barra de menus", "In the menu bar"), in: bar, x: 16, y: 14, width: 400, size: 14)
+        SettingsStyle.header(L("Na barra de menus", "In the menu bar"), in: bar, y: 14)
         mode.addItems(withTitles: MenuDisplayMode.allCases.map(\.title)); basis.addItems(withTitles: UsageDisplayBasis.allCases.map(\.title))
         density.addItems(withTitles: MenuBarDensity.allCases.map(\.title)); opening.addItems(withTitles: MenuOpenBehavior.allCases.map(\.title))
         iconStyle.addItems(withTitles: MenuIconStyle.allCases.map(\.title))
         for (index, style) in MenuIconStyle.allCases.enumerated() { iconStyle.item(at: index)?.image = style == .app ? CursorMark.appImage() : CursorMark.image() }
         sync.addItems(withTitles: SyncInterval.allCases.map(\.title)); language.addItems(withTitles: AppLanguage.allCases.map(\.title))
         for (title, control, y, parent) in [(L("Formato", "Format"), mode, CGFloat(50), bar), (L("Exibir valores", "Show values"), basis, CGFloat(86), bar), (L("Espaço na barra", "Menu bar space"), density, CGFloat(122), bar), (L("Abrir cartão", "Open card"), opening, CGFloat(158), bar), (L("Ícone da barra", "Menu bar icon"), iconStyle, CGFloat(194), bar), (L("Sincronizar a cada", "Sync every"), sync, CGFloat(50), app), (L("Idioma", "Language"), language, CGFloat(86), app)] {
-            label(title, in: parent, x: 16, y: y + 4, width: 170, size: 11, muted: true)
-            control.frame = NSRect(x: 188, y: y, width: 278, height: 26); control.font = .systemFont(ofSize: 11); control.target = self; control.action = #selector(changed); parent.addSubview(control)
+            label(title, in: parent, x: 16, y: y + 3, width: 170, size: 12, muted: true)
+            control.frame = NSRect(x: 188, y: y, width: 280, height: 26); control.font = .systemFont(ofSize: 12); control.target = self; control.action = #selector(changed); parent.addSubview(control)
         }
         showIcon.frame = NSRect(x: 16, y: 237, width: 158, height: 22); showDetailedLabels.frame = NSRect(x: 188, y: 237, width: 280, height: 22)
         showDetailedLabels.toolTip = L("Oculta só os nomes; os valores continuam na ordem hoje e ciclo.", "Hides only the labels; values remain in today then cycle order.")
-        for control in [showIcon, showDetailedLabels] { control.font = .systemFont(ofSize: 11); control.target = self; control.action = #selector(changed); bar.addSubview(control) }
-        label(L("PRÉVIA DA BARRA", "MENU BAR PREVIEW"), in: bar, x: 16, y: 275, width: 400, size: 9, muted: true)
-        let capsule = SettingsSurface(frame: NSRect(x: 16, y: 298, width: 452, height: 48), accent: true); bar.addSubview(capsule)
+        for control in [showIcon, showDetailedLabels] { control.font = .systemFont(ofSize: 12); control.target = self; control.action = #selector(changed); bar.addSubview(control) }
+        SettingsStyle.separator(in: bar, y: 272)
+        SettingsStyle.header(L("Prévia da barra", "Menu bar preview"), in: bar, y: 286)
+        let capsule = SettingsSurface(frame: NSRect(x: 16, y: 314, width: 452, height: 48), accent: true); bar.addSubview(capsule)
         preview.frame = NSRect(x: 14, y: 8, width: 424, height: 32); preview.isBordered = false; preview.alignment = .left; preview.focusRingType = .none
         preview.identifier = NSUserInterfaceItemIdentifier("menuBarPreview"); preview.setAccessibilityRole(.staticText); preview.setAccessibilityLabel(L("Prévia da barra de menus", "Menu bar preview")); capsule.addSubview(preview)
-        previewExplanation.frame = NSRect(x: 16, y: 362, width: 452, height: 30); previewExplanation.font = .systemFont(ofSize: 10); previewExplanation.textColor = .secondaryLabelColor; bar.addSubview(previewExplanation)
-        alerts.frame.origin = NSPoint(x: 42, y: 18); alerts.onChange = { [weak self] in self?.changed() }; alertsSection.addSubview(alerts)
-        status.frame = NSRect(x: 42, y: 438, width: 400, height: 34); status.font = .systemFont(ofSize: 10); status.textColor = .secondaryLabelColor; alertsSection.addSubview(status)
-        label(L("App e conexão", "App and connection"), in: app, x: 16, y: 14, width: 400, size: 14)
-        startup.frame = NSRect(x: 16, y: 130, width: 400, height: 22); startup.font = .systemFont(ofSize: 11); startup.toolTip = L("Aplicado imediatamente; não depende de Salvar.", "Applied immediately; does not depend on Save."); startup.target = self; startup.action = #selector(startupChanged); app.addSubview(startup)
-        let settings = NSButton(image: NSImage(systemSymbolName: "arrow.up.right.square", accessibilityDescription: L("Abrir Itens de Início", "Open Login Items"))!, target: self, action: #selector(openStartupSettings)); settings.frame = NSRect(x: 434, y: 130, width: 30, height: 24); settings.isBordered = false; app.addSubview(settings)
-        startupDescription.frame = NSRect(x: 16, y: 160, width: 452, height: 42); startupDescription.font = .systemFont(ofSize: 10); startupDescription.textColor = .secondaryLabelColor; app.addSubview(startupDescription)
+        previewExplanation.frame = NSRect(x: 16, y: 370, width: 452, height: 30); previewExplanation.font = .systemFont(ofSize: 11); previewExplanation.textColor = .secondaryLabelColor; bar.addSubview(previewExplanation)
+        alerts.frame.origin = NSPoint(x: SettingsStyle.inset, y: 16); alerts.onChange = { [weak self] in self?.changed() }; alertsSection.addSubview(alerts)
+        models.onChange = { [weak self] in self?.changed() }; models.onResize = { [weak self] in self?.relayoutAlerts() }; alertsSection.addSubview(models)
+        status.frame = NSRect(x: SettingsStyle.inset, y: 438, width: 452, height: 34); status.font = .systemFont(ofSize: 11); status.textColor = .secondaryLabelColor; alertsSection.addSubview(status)
+        SettingsStyle.header(L("Conexão", "Connection"), in: app, y: 14)
+        SettingsStyle.separator(in: app, y: 126)
+        SettingsStyle.header(L("Início automático", "Open at login"), in: app, y: 140)
+        startup.frame = NSRect(x: 16, y: 168, width: 400, height: 22); startup.font = .systemFont(ofSize: 12); startup.toolTip = L("Aplicado imediatamente; não depende de Salvar.", "Applied immediately; does not depend on Save."); startup.target = self; startup.action = #selector(startupChanged); app.addSubview(startup)
+        let settings = NSButton(image: NSImage(systemSymbolName: "arrow.up.right.square", accessibilityDescription: L("Abrir Itens de Início", "Open Login Items"))!, target: self, action: #selector(openStartupSettings)); settings.frame = NSRect(x: 434, y: 167, width: 30, height: 24); settings.isBordered = false; app.addSubview(settings)
+        startupDescription.frame = NSRect(x: 16, y: 194, width: 452, height: 34); startupDescription.font = .systemFont(ofSize: 11); startupDescription.textColor = .secondaryLabelColor; app.addSubview(startupDescription)
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? L("Desenvolvimento", "Development")
-        label("Cursor Usage \(version)", in: app, x: 16, y: 221, width: 450, size: 11, muted: true)
+        SettingsStyle.separator(in: app, y: 238)
+        SettingsStyle.header(L("Versão e suporte", "Version and support"), in: app, y: 252)
+        label("Cursor Usage \(version)", in: app, x: 16, y: 274, width: 450, size: 11, muted: true)
         for (title, x, action) in [(L("Sobre", "About"), CGFloat(16), #selector(aboutAction)), (L("Verificar atualizações…", "Check for Updates…"), CGFloat(162), #selector(updateAction))] {
-            let button = NSButton(title: title, target: self, action: action); button.frame = NSRect(x: x, y: 256, width: x == 16 ? 130 : 302, height: 28); button.bezelStyle = .rounded; button.font = .systemFont(ofSize: 11); app.addSubview(button)
+            let button = NSButton(title: title, target: self, action: action); button.frame = NSRect(x: x, y: 302, width: x == 16 ? 130 : 302, height: 28); button.bezelStyle = .rounded; button.font = .systemFont(ofSize: 12); app.addSubview(button)
             if action == #selector(updateAction) { updateButton = button }
         }
         let report = NSButton(title: L("Reportar problema…", "Report an issue…"), target: self, action: #selector(reportIssue))
-        report.frame = NSRect(x: 16, y: 296, width: 448, height: 28); report.bezelStyle = .rounded; report.font = .systemFont(ofSize: 11); app.addSubview(report)
+        report.frame = NSRect(x: 16, y: 338, width: 448, height: 28); report.bezelStyle = .rounded; report.font = .systemFont(ofSize: 12); app.addSubview(report)
         for (title, x, action) in [(L("Cancelar", "Cancel"), CGFloat(290), #selector(cancel)), (L("Salvar", "Save"), CGFloat(398), #selector(save))] {
             let button = NSButton(title: title, target: self, action: action); button.frame = NSRect(x: x, y: 12, width: 100, height: 30); button.bezelStyle = .rounded
             if action == #selector(save) { button.keyEquivalent = "\r"; button.bezelColor = NSColor(srgbRed: 0.42, green: 0.87, blue: 0.73, alpha: 1) }; container.addSubview(button)
         }
-        selectTab()
+        relayoutAlerts(); selectTab()
     }
     required init?(coder: NSCoder) { fatalError() }
+    // The per-model list grows with each monitored model; the alerts tab and its scroll height follow it.
+    private func relayoutAlerts() {
+        guard let section = alertsSection else { return }
+        models.frame.origin = NSPoint(x: SettingsStyle.inset, y: alerts.frame.maxY + 16)
+        status.frame = NSRect(x: SettingsStyle.inset, y: models.frame.maxY + 8, width: 452, height: 34)
+        section.frame.size.height = status.frame.maxY + 12
+        if tabs.selectedSegment == 1, let document = scroll.documentView { document.frame.size.height = 140 + section.frame.height + 20 }
+    }
+    // Opens the alerts tab with a model already on the monitored list, ready for its limits.
+    func monitor(_ model: String) { tabs.selectedSegment = 1; selectTab(); models.monitor(model) }
     static func fittedHeight(screen: NSScreen? = NSScreen.main) -> CGFloat { min(640, ((screen?.visibleFrame.height ?? 800) * 0.8).rounded(.down)) }
     func present(_ value: AppPreferences, providerLimitMicros: Int64? = nil) {
         suspendedForMenuBar = false
@@ -109,6 +128,7 @@ import AppKit
         alert.cycleEnabled = value.notifyCycle; alert.cyclePercent = value.alertPercent; alert.dailyEnabled = value.notifyDaily
         alert.dailyPercent = value.dailyAlertPercent; alert.sound = value.alertSound; alert.renewal = value.notifyRenewal
         alerts.present(alert, officialLimit: providerLimitMicros.map { Double($0) / 1_000_000 })
+        models.present(ModelAlertControls.Draft(notifyNewModel: value.notifyNewModel, notifyRate: value.notifyModelRate, ratePercent: value.modelRatePercent, monitored: value.monitoredModels), choices: onModelChoices?() ?? [])
         refreshStartup(); changed(); window?.setContentSize(NSSize(width: 520, height: Self.fittedHeight()))
         selectTab(); window?.center(); showWindow(nil); NSApp.activate(ignoringOtherApps: true)
     }
@@ -134,10 +154,11 @@ import AppKit
         return value
     }
     private func draft() -> AppPreferences? {
-        guard let alert = alerts.draft() else { return nil }
+        guard let alert = alerts.draft(), let modelAlerts = models.draft() else { return nil }
         var value = menuDraft()
         value.personalBudgetEnabled = alert.personalEnabled; if alert.personalEnabled { value.personalBudgetMicros = Int64((alert.personalLimit * 1_000_000).rounded()) }
         value.notifyCycle = alert.cycleEnabled; value.alertPercent = alert.cyclePercent; value.notifyDaily = alert.dailyEnabled; value.dailyAlertPercent = alert.dailyPercent
+        value.notifyNewModel = modelAlerts.notifyNewModel; value.notifyModelRate = modelAlerts.notifyRate; value.modelRatePercent = modelAlerts.ratePercent; value.monitoredModels = modelAlerts.monitored
         value.alertSound = alert.sound; value.notifyRenewal = alert.renewal; return value
     }
     @objc private func openAccount() { suspendForMenuBar(); onConnect?() }
@@ -175,7 +196,7 @@ import AppKit
     private func refreshStartup() { let state = startupState?() ?? .unavailable; startup.state = state == .requiresApproval ? .mixed : (state == .enabled ? .on : .off); startupDescription.stringValue = state.message }
     @objc private func startupChanged() { do { try onStartupChange?(startup.state != .off); refreshStartup() } catch { refreshStartup(); startupDescription.stringValue = LoginItemManager.failureMessage(error, state: startupState?() ?? .unavailable) } }
     @objc private func openStartupSettings() { onStartupSettings?() }
-    @objc private func save() { guard let value = draft() else { tabs.selectedSegment = 1; selectTab(); setStatus(L("Informe uma meta válida e um aviso diário de 1% a 100%.", "Enter a valid goal and a daily alert from 1% to 100%.")); return }; guard onSave?(value) == true else { return }; suspendedForMenuBar = false; window?.orderOut(nil) }
+    @objc private func save() { guard let value = draft() else { tabs.selectedSegment = 1; selectTab(); setStatus(L("Informe uma meta válida, um aviso diário de 1% a 100% e limites de modelo maiores que zero.", "Enter a valid goal, a daily alert from 1% to 100% and model limits above zero.")); return }; guard onSave?(value) == true else { return }; suspendedForMenuBar = false; window?.orderOut(nil) }
     @objc private func cancel() { suspendedForMenuBar = false; window?.orderOut(nil) }
 }
 @MainActor private final class SettingsContent: NSView { override var isFlipped: Bool { true } }

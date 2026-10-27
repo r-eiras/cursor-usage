@@ -25,6 +25,9 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private var availableUpdate: String?
     private var nextUpdateCheck = Date().addingTimeInterval(60)
     private var installingUpdate = false
+    // Models this account has used, so a first use can be told apart; nil until the first import.
+    private var knownModels: Set<String>?
+    private var lastModelEvaluation: Date?
     private var isSignedOut = false
     private var signingOut = false
     private var loginPaused = false
@@ -64,6 +67,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         isSignedOut = accountStorage.isSignedOut
         if !isSignedOut, let data = try? Data(contentsOf: storage), let saved = try? JSONDecoder().decode([UsageSnapshot].self, from: data) { history = saved }
         if !isSignedOut, let data = try? Data(contentsOf: folder.appendingPathComponent("events.json")) { dataset = try? JSONDecoder().decode(UsageDataset.self, from: data) }
+        if !isSignedOut, let data = try? Data(contentsOf: folder.appendingPathComponent("models-seen.json")) { knownModels = try? JSONDecoder().decode(Set<String>.self, from: data) }
         if let data = try? Data(contentsOf: folder.appendingPathComponent("period.json")), let saved = try? JSONDecoder().decode(PeriodSelection.self, from: data) { selection = saved }
         if let data = try? Data(contentsOf: folder.appendingPathComponent("preferences.json")), let saved = try? JSONDecoder().decode(AppPreferences.self, from: data) { preferences = saved }
         AppLanguage.current = preferences.language; card.localize()
@@ -71,6 +75,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         notifications = BudgetNotifications(folder: folder)
         notifications.onStatus = { [weak self] value in self?.notificationStatus = value; self?.preferencesPanel?.setStatus(value) }
         notifications.onUpdateRequested = { [weak self] install in if install { self?.installAvailableUpdate() } else { self?.checkForUpdates() } }
+        notifications.onMonitorModel = { [weak self] model in self?.showPreferences(); self?.preferencesPanel?.monitor(model) }
         // Leftovers of the update that installed this version: its download folder and its notice.
         try? FileManager.default.removeItem(at: AppUpdater.stagingFolder()); notifications.clearUpdateNotices(installed: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")
         let controller = NSViewController(); controller.view = card
@@ -123,7 +128,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         if !isSignedOut && !loginPaused && Date().timeIntervalSince(lastRefresh) >= preferences.syncInterval.seconds && (!window.isVisible || webView?.url?.path == dashboard.path) { refresh() }
         if Date().timeIntervalSince(lastRenewalCheck) >= 3600 { lastRenewalCheck = Date(); renewBrowserSessionIfNeeded() }
         if Date() >= nextUpdateCheck { nextUpdateCheck = Date().addingTimeInterval(86400); checkForUpdatesQuietly() }
-        readUsage(); releasePageIfSynced(); render()
+        readUsage(); releasePageIfSynced(); evaluateModelAlerts(); render()
     }
     @objc private func togglePopover() {
         guard let button = status.button else { return }
@@ -158,7 +163,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         if hoverState.shouldDismiss(pointerInside: onIcon || onPanel) { closePopovers() }
     }
     private func closePopovers() {
-        hoverTimer?.invalidate(); hoverTimer = nil; hoveredByPointer = false; popover.close(); popoverDismissal.stop()
+        hoverTimer?.invalidate(); hoverTimer = nil; hoveredByPointer = false; card.hideModelDetail(); popover.close(); popoverDismissal.stop()
     }
     func popoverWillShow(_ notification: Notification) {
         if !hoveredByPointer { NSApp.activate(ignoringOtherApps: true) }; popoverDismissal.start(); startHoverDismissal()
@@ -168,7 +173,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             host.collectionBehavior.subtract([.moveToActiveSpace, .canJoinAllSpaces]); if !hoveredByPointer { host.makeKey() }
         }
     }
-    func popoverDidClose(_ notification: Notification) { hoveredByPointer = false; popoverDismissal.stop(); hoverTimer?.invalidate(); hoverTimer = nil }
+    func popoverDidClose(_ notification: Notification) { card.hideModelDetail(); hoveredByPointer = false; popoverDismissal.stop(); hoverTimer?.invalidate(); hoverTimer = nil }
     func popoverShouldDetach(_ popover: NSPopover) -> Bool { false }
     private func ensureWebView() -> WKWebView {
         if let webView { return webView }
@@ -443,7 +448,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         browserSignIn?.cancel(); browserSignIn = nil; browserSessions.delete(); awaitingBrowserSession = false; updateBrowserButton()
         isSignedOut = true; signingOut = true; refreshGeneration += 1
         exporter.cancelAll(); exportInFlight = false; historySettled = true; closePopovers(); window.orderOut(nil); releaseBrowser()
-        history.removeAll(); dataset = nil; lastRead = .distantPast; notifications.resetAccount()
+        history.removeAll(); dataset = nil; lastRead = .distantPast; notifications.resetAccount(); knownModels = nil; lastModelEvaluation = nil
         message = L("Conta desconectada", "Account disconnected"); analyticsMessage = L("Conecte sua conta para acompanhar o consumo.", "Connect your account to track usage.")
         render(forceCard: true)
         WKWebsiteDataStore.default().removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) { [weak self] in
@@ -505,6 +510,33 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             else if (hasUpdate && response == .alertThirdButtonReturn) || (!hasUpdate && response == .alertSecondButtonReturn) { NSWorkspace.shared.open(releaseURL) }
         }
     }
+    private var cycleStart: Date? {
+        history.last.flatMap { quota in BudgetEngine.assess(quota: quota, dataset: dataset, preferences: preferences, now: Date())?.cycle.start }
+    }
+    // Once per import, and again when settings change. First uses are remembered even with that alert off.
+    private func evaluateModelAlerts(force: Bool = false) {
+        guard !isSignedOut, let dataset, force || lastModelEvaluation != dataset.fetchedAt else { return }
+        lastModelEvaluation = dataset.fetchedAt
+        let result = ModelAlerts.evaluate(dataset: dataset, preferences: preferences, known: knownModels, cycleStart: cycleStart, now: Date(), delivered: notifications.announcedIDs)
+        if result.known != knownModels {
+            knownModels = result.known
+            let file = AppFolder.url.appendingPathComponent("models-seen.json")
+            if let data = try? JSONEncoder().encode(result.known) { try? data.write(to: file, options: .atomic); try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path) }
+        }
+        notifications.announceModels(result.alerts, sound: preferences.alertSound)
+    }
+    // Models of the current cycle for the settings picker, costliest first; "new" when first seen in the last three days.
+    private func modelChoices() -> [ModelAlertControls.Choice] {
+        guard let dataset else { return [] }
+        let now = Date(), start = cycleStart ?? Calendar.current.dateInterval(of: .month, for: now)!.start, recent = now.addingTimeInterval(-3 * 86400)
+        var spend: [String: Int64] = [:], first: [String: Date] = [:]
+        for event in dataset.events {
+            if event.date >= start { spend[event.model, default: 0] += event.costMicros }
+            first[event.model] = min(first[event.model] ?? event.date, event.date)
+        }
+        return first.keys.map { ModelAlertControls.Choice(model: $0, cycleSpendMicros: spend[$0] ?? 0, isNew: dataset.coverageStart < recent && (first[$0] ?? now) >= recent) }
+            .sorted { $0.cycleSpendMicros == $1.cycleSpendMicros ? $0.model < $1.model : $0.cycleSpendMicros > $1.cycleSpendMicros }
+    }
     // A daily check: a new release is announced once and stays offered in the menu until installed.
     private func checkForUpdatesQuietly() {
         guard !checkingForUpdates, !installingUpdate else { return }
@@ -562,6 +594,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             panel.startupState = { [weak self] in self?.loginItem.state ?? .unavailable }
             panel.onStartupChange = { [weak self] in try self?.loginItem.setEnabled($0) }
             panel.onStartupSettings = { LoginItemManager.openSettings() }
+            panel.onModelChoices = { [weak self] in self?.modelChoices() ?? [] }
             panel.onConnect = { [weak self] in self?.showDashboard() }
             panel.onDisconnect = { [weak self] in self?.disconnectAccount() }
             panel.canDisconnect = { [weak self] in self.map { !$0.isSignedOut && !$0.signingOut } ?? false }
@@ -583,7 +616,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
                 self.preferences = value; AppLanguage.current = value.language; self.card.localize()
                 if changedLanguage { DispatchQueue.main.async { [weak self] in self?.preferencesPanel = nil } }
                 self.window.title = L("Cursor Usage — entre no painel oficial do Cursor", "Cursor Usage — sign in to the official Cursor dashboard")
-                self.updateBrowserButton(); self.notifications.requestPermissionIfNeeded(preferences: value); self.render(); return true
+                self.updateBrowserButton(); self.notifications.requestPermissionIfNeeded(preferences: value); self.evaluateModelAlerts(force: true); self.render(); return true
             }
             preferencesPanel = panel
         }

@@ -31,6 +31,13 @@ enum MenuOpenBehavior: String, Codable, CaseIterable {
         self == .hoverAndClick ? L("Ao passar o mouse ou clicar", "On hover or click") : L("Somente ao clicar", "On click only")
     }
 }
+// A model the user chose to watch, with optional goals in micro-dollars. Cursor itself has no per-model limit.
+struct MonitoredModel: Codable, Equatable {
+    var model: String
+    var dailyLimitMicros: Int64?
+    var cycleLimitMicros: Int64?
+}
+
 struct AppPreferences: Codable {
     private var storedSyncInterval: SyncInterval?
     private var storedMenuIconStyle: MenuIconStyle?
@@ -41,6 +48,10 @@ struct AppPreferences: Codable {
     private var storedDailyAlertPercent: Double?
     private var storedNotifyRenewal: Bool?
     private var storedLanguage: AppLanguage?
+    private var storedNotifyNewModel: Bool?
+    private var storedNotifyModelRate: Bool?
+    private var storedModelRatePercent: Int?
+    private var storedMonitoredModels: [MonitoredModel]?
     var menuIconStyle: MenuIconStyle { get { storedMenuIconStyle ?? .app } set { storedMenuIconStyle = newValue } }
     var showDetailedLabels: Bool { get { storedShowDetailedLabels ?? true } set { storedShowDetailedLabels = newValue } }
     var menuOpenBehavior: MenuOpenBehavior { get { storedMenuOpenBehavior ?? .hoverAndClick } set { storedMenuOpenBehavior = newValue } }
@@ -50,6 +61,11 @@ struct AppPreferences: Codable {
     var dailyAlertPercent: Double { get { storedDailyAlertPercent ?? 100 } set { storedDailyAlertPercent = newValue.isFinite ? min(100, max(1, newValue)) : 100 } }
     var notifyRenewal: Bool { get { storedNotifyRenewal ?? false } set { storedNotifyRenewal = newValue } }
     var language: AppLanguage { get { storedLanguage ?? .system } set { storedLanguage = newValue } }
+    // Model alerts need no setup, so they start on; like the update notice, the first one asks macOS for permission.
+    var notifyNewModel: Bool { get { storedNotifyNewModel ?? true } set { storedNotifyNewModel = newValue } }
+    var notifyModelRate: Bool { get { storedNotifyModelRate ?? true } set { storedNotifyModelRate = newValue } }
+    var modelRatePercent: Int { get { storedModelRatePercent ?? 50 } set { storedModelRatePercent = min(300, max(10, newValue)) } }
+    var monitoredModels: [MonitoredModel] { get { storedMonitoredModels ?? [] } set { storedMonitoredModels = newValue } }
     var freshnessInterval: TimeInterval { max(600, syncInterval.seconds + 60) }
     var menuMode: MenuDisplayMode = .percentage
     var showIcon = true
@@ -155,7 +171,7 @@ struct MenuBarPresentation {
 }
 
 struct BudgetAlert {
-    enum Kind { case cycle, daily, renewal, window }
+    enum Kind { case cycle, daily, renewal, window, newModel, modelRate, modelLimit }
     let id: String
     let kind: Kind
     let title: String

@@ -20,31 +20,98 @@ import AppKit
         if value >= 1000 { return localizedDecimal(String(format: "%.1fk", Double(value) / 1000)) }
         return String(value)
     }
-    static func text(_ value: String, rect: NSRect, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor? = nil, align: NSTextAlignment = .left, mono: Bool = false) {
-        let p = NSMutableParagraphStyle(); p.lineBreakMode = .byTruncatingTail; p.alignment = align
+    static func text(_ value: String, rect: NSRect, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor? = nil, align: NSTextAlignment = .left, mono: Bool = false, truncation: NSLineBreakMode = .byTruncatingTail) {
+        let p = NSMutableParagraphStyle(); p.lineBreakMode = truncation; p.alignment = align
         (value as NSString).draw(in: rect, withAttributes: [.font: mono ? NSFont.monospacedDigitSystemFont(ofSize: size, weight: weight) : NSFont.systemFont(ofSize: size, weight: weight), .foregroundColor: color ?? white, .paragraphStyle: p])
     }
 }
 
 @MainActor private final class ModelRow: NSView {
     let model: ModelUsage; let share: Double
+    var onHover: ((ModelRow, Bool) -> Void)?
     override var isFlipped: Bool { true }
     init(model: ModelUsage, share: Double, frame: NSRect) {
         self.model = model; self.share = share; super.init(frame: frame)
-        toolTip = L("\(model.model)\n\(model.events) requisições · \(model.tokens.formatted()) tokens informados\nEntrada: \(model.input.formatted()) · gravação cache: \(model.cacheWrite.formatted())\nLeitura cache: \(model.cacheRead.formatted()) · saída: \(model.output.formatted())\n\(model.missingTokenEvents) requisições sem tokens informados",
-                   "\(model.model)\n\(model.events) requests · \(model.tokens.formatted()) reported tokens\nInput: \(model.input.formatted()) · cache write: \(model.cacheWrite.formatted())\nCache read: \(model.cacheRead.formatted()) · output: \(model.output.formatted())\n\(model.missingTokenEvents) requests without reported tokens")
         setAccessibilityElement(true); setAccessibilityRole(.staticText)
         setAccessibilityLabel("\(model.model), \(QuotaStyle.money(Double(model.costMicros))), \(model.tokens) tokens")
+        setAccessibilityHelp(ModelDetailView.lines(for: model, share: share).map { "\($0.0): \($0.1)" }.joined(separator: ", "))
     }
     required init?(coder: NSCoder) { fatalError() }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas(); trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil))
+    }
+    override func mouseEntered(with event: NSEvent) { onHover?(self, true) }
+    override func mouseExited(with event: NSEvent) { onHover?(self, false) }
     override func draw(_ dirtyRect: NSRect) {
-        let name = model.model
-        QuotaStyle.text(name, rect: NSRect(x: 0, y: 3, width: 183, height: 15), size: 10.5, weight: .medium)
-        QuotaStyle.text(QuotaStyle.money(Double(model.costMicros)), rect: NSRect(x: 183, y: 3, width: 96, height: 15), size: 10.5, weight: .medium, align: .right, mono: true)
-        QuotaStyle.text("\(QuotaStyle.tokens(model.tokens))\(model.missingTokenEvents > 0 ? "+" : "") tokens · \(model.events) \(L("requisições", "requests"))", rect: NSRect(x: 0, y: 19, width: 220, height: 13), size: 9, color: QuotaStyle.muted)
-        QuotaStyle.text(String(format: "%.0f%%", share * 100), rect: NSRect(x: 226, y: 19, width: 53, height: 13), size: 9, color: QuotaStyle.muted, align: .right)
-        NSColor(calibratedWhite: 0.17, alpha: 1).setFill(); NSRect(x: 0, y: 36, width: 279, height: 2).fill()
-        QuotaStyle.mint.withAlphaComponent(0.7).setFill(); NSRect(x: 0, y: 36, width: 279 * share, height: 2).fill()
+        // The middle of a long name is the least distinctive part; keep both ends visible.
+        QuotaStyle.text(model.model, rect: NSRect(x: 0, y: 2, width: 178, height: 16), size: 11.5, weight: .medium, truncation: .byTruncatingMiddle)
+        QuotaStyle.text(QuotaStyle.money(Double(model.costMicros)), rect: NSRect(x: 180, y: 2, width: 99, height: 16), size: 11.5, weight: .medium, align: .right, mono: true)
+        QuotaStyle.text("\(QuotaStyle.tokens(model.tokens))\(model.missingTokenEvents > 0 ? "+" : "") tokens · \(model.events) \(L("requisições", "requests"))", rect: NSRect(x: 0, y: 20, width: 220, height: 14), size: 10, color: QuotaStyle.muted)
+        QuotaStyle.text(String(format: "%.0f%%", share * 100), rect: NSRect(x: 226, y: 20, width: 53, height: 14), size: 10, color: QuotaStyle.muted, align: .right)
+        NSColor(calibratedWhite: 0.17, alpha: 1).setFill(); NSRect(x: 0, y: 38, width: 279, height: 2).fill()
+        QuotaStyle.mint.withAlphaComponent(0.7).setFill(); NSRect(x: 0, y: 38, width: 279 * share, height: 2).fill()
+    }
+}
+
+// Every number for one model, at a readable size, beside the card while the pointer rests on its row.
+@MainActor final class ModelDetailView: NSView {
+    static let width: CGFloat = 272
+    private var model: ModelUsage?; private var share = 0.0
+    override var isFlipped: Bool { true }
+    static func lines(for model: ModelUsage, share: Double) -> [(String, String)] {
+        let number = { (value: Int64) in value.formatted(.number.locale(AppLanguage.locale)) }
+        var lines: [(String, String)] = [(L("Gasto", "Cost"), "\(QuotaStyle.money(Double(model.costMicros))) · \(String(format: "%.0f%%", share * 100))"),
+            (L("Requisições", "Requests"), number(Int64(model.events)))]
+        if model.events > 0 { lines.append((L("Custo médio por requisição", "Average cost per request"), QuotaStyle.money(Double(model.costMicros) / Double(model.events)))) }
+        lines += [(L("Tokens informados", "Reported tokens"), number(model.tokens)), (L("Entrada", "Input"), number(model.input)),
+                  (L("Gravação em cache", "Cache write"), number(model.cacheWrite)), (L("Leitura de cache", "Cache read"), number(model.cacheRead)), (L("Saída", "Output"), number(model.output))]
+        return lines
+    }
+    private static let nameFont = NSFont.systemFont(ofSize: 13, weight: .semibold)
+    private static func nameHeight(_ name: String) -> CGFloat {
+        ceil((name as NSString).boundingRect(with: NSSize(width: width - 32, height: 200), options: [.usesLineFragmentOrigin], attributes: [.font: nameFont]).height)
+    }
+    func show(_ model: ModelUsage, share: Double) -> NSSize {
+        self.model = model; self.share = share; needsDisplay = true
+        let note = model.missingTokenEvents > 0 ? 34.0 : 0
+        return NSSize(width: Self.width, height: 14 + Self.nameHeight(model.model) + 10 + CGFloat(Self.lines(for: model, share: share).count) * 21 + note + 10)
+    }
+    override func draw(_ dirtyRect: NSRect) {
+        guard let model else { return }
+        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 12, yRadius: 12)
+        QuotaStyle.background.setFill(); shape.fill(); NSColor.white.withAlphaComponent(0.12).setStroke(); shape.lineWidth = 1; shape.stroke()
+        let nameHeight = Self.nameHeight(model.model)
+        let style = NSMutableParagraphStyle(); style.lineBreakMode = .byCharWrapping
+        (model.model as NSString).draw(in: NSRect(x: 16, y: 14, width: Self.width - 32, height: nameHeight), withAttributes: [.font: Self.nameFont, .foregroundColor: QuotaStyle.white, .paragraphStyle: style])
+        var y = 14 + nameHeight + 10
+        for (label, value) in Self.lines(for: model, share: share) {
+            QuotaStyle.text(label, rect: NSRect(x: 16, y: y, width: 150, height: 17), size: 11.5, color: QuotaStyle.muted)
+            QuotaStyle.text(value, rect: NSRect(x: 112, y: y, width: Self.width - 128, height: 17), size: 12, weight: .medium, align: .right, mono: true)
+            y += 21
+        }
+        if model.missingTokenEvents > 0 {
+            let text = L("\(model.missingTokenEvents) requisições sem tokens informados pelo Cursor", "\(model.missingTokenEvents) requests without tokens reported by Cursor")
+            (text as NSString).draw(in: NSRect(x: 16, y: y + 4, width: Self.width - 32, height: 30), withAttributes: [.font: NSFont.systemFont(ofSize: 10.5), .foregroundColor: QuotaStyle.muted])
+        }
+    }
+}
+
+// A floating panel that never takes focus or clicks, so the card's hover and click behaviour stay unchanged.
+@MainActor final class ModelDetailPanel: NSPanel {
+    let detail = ModelDetailView(frame: .zero)
+    init() {
+        super.init(contentRect: NSRect(x: 0, y: 0, width: ModelDetailView.width, height: 100), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
+        isFloatingPanel = true; level = .popUpMenu; hasShadow = true; backgroundColor = .clear; isOpaque = false; ignoresMouseEvents = true
+        appearance = NSAppearance(named: .darkAqua); contentView = detail
+    }
+    // Beside the card, on whichever side has room, level with the hovered row.
+    func show(_ model: ModelUsage, share: Double, row: NSRect, card: NSRect, screen: NSRect) {
+        let size = detail.show(model, share: share)
+        var x = card.minX - size.width - 8
+        if x < screen.minX + 4 { x = card.maxX + 8 }
+        let y = min(max(row.midY - size.height / 2, screen.minY + 4), screen.maxY - size.height - 4)
+        setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true); orderFront(nil)
     }
 }
 
@@ -61,7 +128,8 @@ import AppKit
     private let periodPicker = NSPopUpButton(frame: NSRect(x: 16, y: 106, width: 184, height: 25))
     private let tabs = NSSegmentedControl(labels: ["", "", ""], trackingMode: .selectOne, target: nil, action: nil)
     private let sortPicker = NSSegmentedControl(labels: ["", ""], trackingMode: .selectOne, target: nil, action: nil)
-    private let modelScroll = NSScrollView(frame: NSRect(x: 18, y: 199, width: 284, height: 147))
+    private let modelScroll = OverlayScrollView(frame: NSRect(x: 18, y: 199, width: 284, height: 147))
+    private let modelDetail = ModelDetailPanel()
     private var modelSignature = ""
     private var toolButtons: [NSButton] = []
     private let connect = NSButton(title: "", target: nil, action: nil)
@@ -107,7 +175,8 @@ import AppKit
         let period = UsagePeriod.allCases[periodPicker.indexOfSelectedItem]
         onPeriod?(period)
     }
-    @objc private func tabChanged() { refreshVisibility(); needsDisplay = true }
+    @objc private func tabChanged() { hideModelDetail(); refreshVisibility(); needsDisplay = true }
+    func hideModelDetail() { modelDetail.orderOut(nil) }
     @objc private func sortChanged() { modelSignature = ""; rebuildModels(); needsDisplay = true }
     func showModels() { tabs.selectedSegment = 1; tabChanged() }
     func showBudget() { tabs.selectedSegment = 2; tabChanged() }
@@ -134,8 +203,16 @@ import AppKit
         guard signature != modelSignature else { return }; modelSignature = signature
         let document = FlippedContent(frame: NSRect(x: 0, y: 0, width: 279, height: max(147, rows.count * 44)))
         let total = max(1, report?.costMicros ?? 0)
-        for (index, row) in rows.enumerated() { document.addSubview(ModelRow(model: row, share: Double(row.costMicros) / Double(total), frame: NSRect(x: 0, y: index * 44, width: 279, height: 44))) }
+        hideModelDetail()
+        for (index, row) in rows.enumerated() {
+            let view = ModelRow(model: row, share: Double(row.costMicros) / Double(total), frame: NSRect(x: 0, y: index * 44, width: 279, height: 44))
+            view.onHover = { [weak self] row, inside in self?.hover(row, inside: inside) }; document.addSubview(view)
+        }
         modelScroll.documentView = document
+    }
+    private func hover(_ row: ModelRow, inside: Bool) {
+        guard inside, let window, !isHidden, let screen = window.screen?.visibleFrame else { hideModelDetail(); return }
+        modelDetail.show(row.model, share: row.share, row: window.convertToScreen(row.convert(row.bounds, to: nil)), card: window.frame, screen: screen)
     }
     private func text(_ value: String, x: CGFloat = 18, y: CGFloat, width: CGFloat = 284, size: CGFloat = 10, weight: NSFont.Weight = .regular, color: NSColor? = nil, align: NSTextAlignment = .left, mono: Bool = false) {
         QuotaStyle.text(value, rect: NSRect(x: x, y: y, width: width, height: 32), size: size, weight: weight, color: color, align: align, mono: mono)

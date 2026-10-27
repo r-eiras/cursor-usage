@@ -139,5 +139,42 @@ MainActor.assumeIsolated {
         panel.setUpdateChecking(false); check(updates.isEnabled, "Finishing restores the update action")
         window.orderOut(nil)
     }
-    print("PASS: Cursor controls, numeric validation, pt-BR/en and fixed preferences footer")
+    for language in [AppLanguage.english, .portuguese] {
+        AppLanguage.current = language
+        let models = ModelAlertControls()
+        var resized = 0; models.onResize = { resized += 1 }
+        let choices = [ModelAlertControls.Choice(model: "claude-opus", cycleSpendMicros: 90_000_000, isNew: false), ModelAlertControls.Choice(model: "gemini-argon", cycleSpendMicros: 15_000_000, isNew: true)]
+        models.present(ModelAlertControls.Draft(), choices: choices)
+        check(models.draft() == ModelAlertControls.Draft(), "Model alerts start on at 50% with nothing monitored")
+        let emptyHeight = models.frame.height
+        models.monitor("gemini-argon"); models.monitor("gemini-argon")
+        check(models.monitoredModels == ["gemini-argon"] && models.frame.height > emptyHeight && resized > 0, "Monitoring a model adds one row and grows the section")
+        func fields() -> [NSTextField] { models.subviews.flatMap(\.subviews).compactMap { $0 as? NSTextField }.filter { $0.isEditable } }
+        check(fields().count == 2, "Each monitored model has a daily and a cycle limit")
+        fields()[0].stringValue = L("20,50", "20.50"); fields()[1].stringValue = ""
+        check(models.draft()?.monitored == [MonitoredModel(model: "gemini-argon", dailyLimitMicros: 20_500_000, cycleLimitMicros: nil)], "An empty limit means none, and amounts accept the local decimal mark")
+        fields()[1].stringValue = "0"
+        check(models.draft() == nil, "A zero limit cannot be saved")
+        fields()[1].stringValue = "abc"; check(models.draft() == nil, "Text that is not an amount cannot be saved")
+        fields()[1].stringValue = "50"
+        let rate = models.subviews.compactMap { $0 as? NSButton }.first { $0.title.contains("50%") }!
+        let slider = models.subviews.compactMap { $0 as? NSSlider }.first!
+        slider.integerValue = 80; _ = slider.sendAction(slider.action, to: slider.target)
+        check(rate.title.contains("80%") && models.draft()?.ratePercent == 80, "The threshold slider updates its title and the draft")
+        rate.performClick(nil); check(!slider.isEnabled && models.draft()?.notifyRate == false, "Turning the rate alert off disables its threshold")
+        let remove = models.subviews.flatMap(\.subviews).compactMap { $0 as? NSButton }.first { $0.image?.accessibilityDescription == L("Parar de monitorar gemini-argon", "Stop monitoring gemini-argon") }!
+        remove.performClick(nil)
+        check(models.monitoredModels.isEmpty && models.frame.height == emptyHeight, "Removing the last model restores the empty list")
+        let panel = PreferencesPanel(); panel.startupState = { .disabled }; panel.onModelChoices = { choices }
+        var saved: AppPreferences?; panel.onSave = { saved = $0; return true }
+        panel.present(AppPreferences()); panel.monitor("claude-opus")
+        func all(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(all) }
+        let content = panel.window!.contentView!
+        let section = all(content).compactMap { $0 as? ModelAlertControls }.first!
+        check(!section.isHidden && section.monitoredModels == ["claude-opus"], "A notification's Monitor action opens the alerts tab with the model listed")
+        all(content).compactMap { $0 as? NSButton }.first { $0.title == L("Salvar", "Save") }!.performClick(nil)
+        check(saved?.monitoredModels == [MonitoredModel(model: "claude-opus")], "Saving keeps the monitored model")
+        panel.window?.orderOut(nil)
+    }
+    print("PASS: Cursor controls, numeric validation, pt-BR/en, fixed preferences footer and per-model alert settings")
 }

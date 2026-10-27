@@ -30,5 +30,19 @@ MainActor.assumeIsolated {
         period.selectItem(at: UsagePeriod.allCases.firstIndex(of: .month)!); _ = period.sendAction(period.action, to: period.target)
         check(selected == .month && period.title == L("Mês corrente", "Current month"), "The current month selection reaches the app callback")
     }
-    print("PASS: model sorting controls, current month and removal of the custom period in both languages")
+    let report = AnalyticsEngine.report(dataset: dataset, selection: PeriodSelection(), quota: nil, now: now)!
+    let expensive = report.models.first { $0.model == "expensive-model" }!
+    for language in [AppLanguage.portuguese, .english] {
+        AppLanguage.current = language
+        let lines = ModelDetailView.lines(for: expensive, share: 0.9)
+        check(lines.first?.1.contains(QuotaStyle.money(10_000_000)) == true && lines.contains { $0.0 == L("Custo médio por requisição", "Average cost per request") }, "The detail shows the cost, its share and the average per request")
+        check(lines.contains { $0.0 == L("Leitura de cache", "Cache read") } && lines.contains { $0.0 == L("Saída", "Output") }, "The detail shows every token kind")
+    }
+    let detail = ModelDetailView(frame: .zero)
+    let short = detail.show(expensive, share: 0.9)
+    let long = detail.show(ModelUsage(model: String(repeating: "very-long-model-name-", count: 4), costMicros: 1, events: 1), share: 0.1)
+    check(short.width == ModelDetailView.width && long.height > short.height, "A long name wraps inside the detail instead of being cut")
+    let pinned = OverlayScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 100)); pinned.scrollerStyle = .legacy
+    check(pinned.scrollerStyle == .overlay, "Lists keep scrollers that fade out, even when macOS prefers visible ones")
+    print("PASS: model sorting controls, current month, removal of the custom period, model detail and fading scrollers")
 }

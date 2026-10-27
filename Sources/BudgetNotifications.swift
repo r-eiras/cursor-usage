@@ -12,7 +12,8 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
     var onStatus: ((String) -> Void)?
     // True when the user chose "Update now" on the notification rather than opening it.
     var onUpdateRequested: ((Bool) -> Void)?
-    nonisolated static let updateCategory = "update", installAction = "install"
+    var onMonitorModel: ((String) -> Void)?
+    nonisolated static let updateCategory = "update", installAction = "install", newModelCategory = "model-new", monitorAction = "monitor"
 
     init(folder: URL) {
         ledgerURL = folder.appendingPathComponent("alert-history.json")
@@ -20,10 +21,14 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
         if let data = try? Data(contentsOf: ledgerURL), let saved = try? JSONDecoder().decode([String: Date].self, from: data) { delivered = saved }
         delivered = delivered.filter { Date().timeIntervalSince($0.value) < 62 * 86400 }
         center.delegate = self
+        center.setNotificationCategories([
+            UNNotificationCategory(identifier: Self.updateCategory, actions: [UNNotificationAction(identifier: Self.installAction, title: L("Atualizar agora", "Update now"), options: [])], intentIdentifiers: []),
+            UNNotificationCategory(identifier: Self.newModelCategory, actions: [UNNotificationAction(identifier: Self.monitorAction, title: L("Monitorar este modelo", "Monitor this model"), options: [.foreground])], intentIdentifiers: [])])
     }
+    var announcedIDs: Set<String> { Set(delivered.keys).union(pending) }
     func requestPermissionIfNeeded(preferences: AppPreferences) {
         policyGeneration += 1
-        let anyEnabled = preferences.notifyCycle || preferences.notifyDaily || preferences.notifyRenewal
+        let anyEnabled = preferences.notifyCycle || preferences.notifyDaily || preferences.notifyRenewal || preferences.notifyNewModel || preferences.notifyModelRate || !preferences.monitoredModels.isEmpty
         let anySound = preferences.alertSound
         if !anyEnabled { center.removePendingNotificationRequests(withIdentifiers: Array(pending)) }
         guard anyEnabled else { onStatus?(L("Avisos desligados.", "Alerts off.")); return }
@@ -74,12 +79,32 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
             var status = await self.center.notificationSettings().authorizationStatus
             if status == .notDetermined { status = ((try? await self.center.requestAuthorization(options: [.alert])) ?? false) ? .authorized : .denied }
             guard status == .authorized || status == .provisional else { return }
-            self.center.setNotificationCategories([UNNotificationCategory(identifier: Self.updateCategory, actions: [UNNotificationAction(identifier: Self.installAction, title: L("Atualizar agora", "Update now"), options: [])], intentIdentifiers: [])])
             let content = UNMutableNotificationContent(); content.categoryIdentifier = Self.updateCategory
             content.title = L("Cursor Usage \(version) disponível", "Cursor Usage \(version) is available")
             content.body = L("Atualize com um clique. O app reabre sozinho em alguns segundos.", "Update with one click. The app reopens by itself in a few seconds.")
             do { try await self.center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil)) } catch { return }
             self.delivered[id] = Date()
+            if let data = try? JSONEncoder().encode(self.delivered) { try? data.write(to: self.ledgerURL, options: .atomic) }
+        }
+    }
+
+    // Model alerts start on without any setup, so like update notices they ask macOS once when the first one is due.
+    func announceModels(_ alerts: [BudgetAlert], sound: Bool) {
+        let due = alerts.filter { !pending.contains($0.id) && delivered[$0.id] == nil }
+        guard !due.isEmpty else { return }
+        due.forEach { pending.insert($0.id) }
+        Task { @MainActor in
+            defer { due.forEach { self.pending.remove($0.id) } }
+            var status = await self.center.notificationSettings().authorizationStatus
+            if status == .notDetermined { status = ((try? await self.center.requestAuthorization(options: sound ? [.alert, .sound] : [.alert])) ?? false) ? .authorized : .denied }
+            guard status == .authorized || status == .provisional else { return }
+            for alert in due {
+                let content = UNMutableNotificationContent(); content.title = alert.title; content.body = alert.body
+                if sound { content.sound = .default }
+                if alert.kind == .newModel { content.categoryIdentifier = Self.newModelCategory; content.userInfo = ["model": String(alert.id.dropFirst("model-new:".count))] }
+                do { try await self.center.add(UNNotificationRequest(identifier: alert.id, content: content, trigger: nil)) } catch { continue }
+                self.delivered[alert.id] = Date()
+            }
             if let data = try? JSONEncoder().encode(self.delivered) { try? data.write(to: self.ledgerURL, options: .atomic) }
         }
     }
@@ -130,7 +155,11 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
         completionHandler([.banner, .sound])
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let update = response.notification.request.content.categoryIdentifier == Self.updateCategory, install = response.actionIdentifier == Self.installAction
-        Task { @MainActor in if update { self.onUpdateRequested?(install) }; completionHandler() }
+        let category = response.notification.request.content.categoryIdentifier, install = response.actionIdentifier == Self.installAction
+        let model = response.notification.request.content.userInfo["model"] as? String
+        Task { @MainActor in
+            if category == Self.updateCategory { self.onUpdateRequested?(install) } else if category == Self.newModelCategory, let model { self.onMonitorModel?(model) }
+            completionHandler()
+        }
     }
 }

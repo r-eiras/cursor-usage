@@ -13,7 +13,7 @@ struct QuotaAlertDraft {
 
 // Cursor spending goals, daily allowance and native alerts.
 @MainActor final class CursorAlertControls: NSView, NSTextFieldDelegate {
-    static let height: CGFloat = 408
+    static let height: CGFloat = 438
     var onChange: (() -> Void)?
     private var initial = QuotaAlertDraft()
     private var officialLimit: Double?
@@ -34,39 +34,44 @@ struct QuotaAlertDraft {
     override var isFlipped: Bool { true }
 
     init() {
-        super.init(frame: NSRect(x: 22, y: 0, width: 400, height: Self.height))
-        func label(_ text: String, _ x: CGFloat, _ y: CGFloat, _ width: CGFloat = 400, _ size: CGFloat = 11) {
+        super.init(frame: NSRect(x: SettingsStyle.inset, y: 0, width: 452, height: Self.height))
+        func label(_ text: String, _ x: CGFloat, _ y: CGFloat, _ width: CGFloat) {
             let item = NSTextField(labelWithString: text); item.frame = NSRect(x: x, y: y, width: width, height: 22)
-            item.font = .systemFont(ofSize: size); addSubview(item)
+            item.font = .systemFont(ofSize: 11); item.textColor = .secondaryLabelColor; addSubview(item)
         }
-        label(L("Meta e avisos do Cursor", "Cursor goal and alerts"), 0, 0, 250, 13)
+        // This view already sits on the shared inset, so its titles and lines start at zero.
+        SettingsStyle.header(L("Meta de gastos", "Spending goal"), in: self, x: 0, y: 0)
         personal.title = L("Definir um limite pessoal de gastos", "Set a personal spending limit")
-        personal.frame = NSRect(x: 0, y: 28, width: 400, height: 22)
-        label(L("Limite em", "Limit in") + (" US$"), 0, 62, 116)
-        limit.frame = NSRect(x: 121, y: 58, width: 164, height: 26)
+        personal.frame = NSRect(x: 0, y: 28, width: 452, height: 22)
+        label(L("Limite em", "Limit in") + " US$", 22, 56, 104)
+        limit.frame = NSRect(x: 130, y: 54, width: 150, height: 24)
         limit.placeholderString = L("Ex.: 500,00", "E.g. 500.00")
         limit.delegate = self; addSubview(limit)
-        label(L("Não altera o limite contratado com o Cursor.", "Does not change your Cursor plan limit."), 121, 88, 279, 10)
+        SettingsStyle.note(L("Não altera o limite contratado com o Cursor.", "Does not change your Cursor plan limit."), in: self, x: 130, y: 82, width: 322)
+        SettingsStyle.separator(in: self, x: 0, y: 110)
+        SettingsStyle.header(L("Avisos de consumo", "Usage alerts"), in: self, x: 0, y: 124)
         cycle.title = L("Avisar ao consumir 80% do limite", "Notify at 80% of the limit")
-        cycle.frame = NSRect(x: 0, y: 122, width: 400, height: 22)
-        cycleThreshold.frame = NSRect(x: 0, y: 152, width: 192, height: 22)
-        cycleDescription.frame = NSRect(x: 205, y: 152, width: 195, height: 22); cycleDescription.font = .systemFont(ofSize: 11)
-        label(L("Usa seu limite pessoal ou a cota do Cursor.", "Uses your personal limit or the Cursor allowance."), 0, 181, 400, 10)
+        cycle.frame = NSRect(x: 0, y: 152, width: 452, height: 22)
+        cycleThreshold.frame = NSRect(x: 22, y: 180, width: 200, height: 22)
+        cycleDescription.frame = NSRect(x: 236, y: 180, width: 216, height: 22); cycleDescription.font = .systemFont(ofSize: 11)
+        SettingsStyle.note(L("Usa seu limite pessoal ou a cota do Cursor.", "Uses your personal limit or the Cursor allowance."), in: self, x: 22, y: 206, width: 430)
         daily.title = L("Notificar ao atingir esta % da cota diária", "Notify at this % of the daily allowance")
-        daily.frame = NSRect(x: 0, y: 212, width: 400, height: 22)
-        dailyThreshold.frame = NSRect(x: 0, y: 242, width: 150, height: 24)
-        dailyRatio.frame = NSRect(x: 159, y: 246, width: 47, height: 22); dailyRatio.font = .systemFont(ofSize: 11)
-        label("US$", 209, 243, 30)
-        dailyAmount.frame = NSRect(x: 246, y: 242, width: 154, height: 24); dailyAmount.delegate = self
+        daily.frame = NSRect(x: 0, y: 234, width: 452, height: 22)
+        dailyThreshold.frame = NSRect(x: 22, y: 262, width: 160, height: 24)
+        dailyRatio.frame = NSRect(x: 190, y: 263, width: 50, height: 22); dailyRatio.font = .systemFont(ofSize: 11)
+        label("US$", 246, 263, 30)
+        dailyAmount.frame = NSRect(x: 278, y: 262, width: 150, height: 24); dailyAmount.delegate = self
         dailyAmount.placeholderString = L("Após sincronizar", "After syncing")
         dailyAmount.toolTip = L("O aviso acompanha a cota diária calculada sem alterar sua meta.", "The alert follows the calculated daily quota without changing your goal.")
-        dailyDescription.frame = NSRect(x: 0, y: 278, width: 400, height: 54); dailyDescription.font = .systemFont(ofSize: 10)
+        dailyDescription.frame = NSRect(x: 22, y: 292, width: 430, height: 44); dailyDescription.font = .systemFont(ofSize: 11)
         dailyDescription.textColor = .secondaryLabelColor
-        sound.title = L("Tocar som junto às notificações", "Play a sound with notifications"); sound.frame = NSRect(x: 0, y: 340, width: 400, height: 22)
+        SettingsStyle.separator(in: self, x: 0, y: 344)
+        SettingsStyle.header(L("Notificações", "Notifications"), in: self, x: 0, y: 358)
+        sound.title = L("Tocar som junto às notificações", "Play a sound with notifications"); sound.frame = NSRect(x: 0, y: 386, width: 452, height: 22)
         renewal.title = L("Avisar quando uma cota for renovada", "Alert when a quota renews")
-        renewal.frame = NSRect(x: 0, y: 370, width: 400, height: 22)
+        renewal.frame = NSRect(x: 0, y: 412, width: 452, height: 22)
         for control in [personal, cycle, daily, sound, renewal] {
-            control.font = .systemFont(ofSize: 11); control.target = self; control.action = #selector(changed); addSubview(control)
+            control.font = .systemFont(ofSize: 12); control.target = self; control.action = #selector(changed); addSubview(control)
         }
         for control in [cycleThreshold, dailyThreshold] { control.target = self; control.action = #selector(changed); addSubview(control) }
         for view in [cycleDescription, dailyRatio, dailyAmount, dailyDescription] { addSubview(view) }
@@ -107,12 +112,7 @@ struct QuotaAlertDraft {
         } else { dailyDescription.stringValue = L("Sincronize a cota para calcular o valor diário. Os avisos são opcionais.", "Sync the quota to calculate the daily amount. Alerts are optional.") }
         refreshAppearance()
     }
-    private func number(_ text: String) -> Double? {
-        let raw = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
-        guard raw.range(of: #"^[0-9]+(?:\.[0-9]{1,2})?$"#, options: .regularExpression) != nil,
-              let result = Double(raw), result.isFinite else { return nil }
-        return result
-    }
+    private func number(_ text: String) -> Double? { SettingsStyle.dollars(text) }
     private func format(_ value: Double) -> String {
         MenuBarPresentation.money(value * 1_000_000)
     }

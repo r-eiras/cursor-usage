@@ -26,7 +26,7 @@ If the sign-in page in that window doesn't work — for example, your Google acc
 
 That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
-**Current version: 3.3.1 · build 15 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
+**Current version: 3.4.0 · build 16 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
 | --- | --- |
@@ -35,7 +35,7 @@ That command is the way to install the app, and the same command updates it late
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.3.1`. Developers can build from source instead; see [Build and test](#build-and-test).
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.4.0`. Developers can build from source instead; see [Build and test](#build-and-test).
 
 ### The app vanishes, or no icon appears
 
@@ -102,6 +102,7 @@ This is an independent project. It is not affiliated with or endorsed by Anysphe
 - Displays spending, request counts, reported tokens, and model rankings in the usage card.
 - Provides reports for today, this week, the last three or seven days, and the current calendar month. New installations start with the current month.
 - Supports a personal spending limit, cycle/daily threshold alerts, renewal alerts, and optional notification sounds.
+- Alerts by model: a model's first use, a model spending well above your costliest model, and goals for the models you choose.
 - Includes explicit disconnect, optional start at login, and Brazilian Portuguese/English interfaces.
 
 **Today is a calculated daily allowance, not an official daily quota supplied by Cursor.** The app spreads the available cycle budget across the remaining calendar days. A personal limit changes this planning reference; it does not change your Cursor plan or stop charges.
@@ -115,7 +116,7 @@ Some exported requests have no reported token count. Those requests still count 
 Click the indicator, or hover if that behavior is enabled. In the card:
 
 - **Summary** shows the selected period's spending, activity, and pacing information.
-- **Models** ranks usage by spending or reported tokens.
+- **Models** ranks usage by spending or reported tokens. Rest the pointer on a model to see all of its numbers beside the card: cost and share, requests, average cost per request, and each kind of token.
 - **Goal** explains the personal limit, daily planning allowance, and alert settings.
 
 The period selector changes the historical report. It does not change the subscription-cycle balance in the menu bar. Right-click the indicator for About, Settings, account disconnect, update status, and Quit.
@@ -125,12 +126,22 @@ The period selector changes the historical report. It does not change the subscr
 | Tab | Controls |
 | --- | --- |
 | **Menu bar** | Number format, consumed/remaining values, layout, hover/click behavior, icon, optional Today/Cycle labels, and a native preview. |
-| **Alerts** | Personal spending limit, cycle and calculated-daily thresholds, sounds, and renewal alerts. |
+| **Alerts** | Personal spending limit, cycle and calculated-daily thresholds, sounds, renewal alerts, and per-model alerts with monitored models. |
 | **App** | Refresh interval, language, start at login, About, and update status. |
 
 **Save** applies the draft settings; **Cancel** discards them. Start at login is applied immediately. Keep the app in a stable location before enabling it. Opening the menu-bar card temporarily hides Settings without saving the draft.
 
-Alerts start disabled and need macOS notification permission. Notifications require the app to be open, and Focus settings can affect delivery. Repeated readings do not repeatedly notify for the same threshold. A personal limit is optional; without it, cycle alerts use the Cursor allowance.
+Usage alerts start disabled. Per-model alerts start on, because they need no setup; the first one asks macOS for notification permission once. Notifications require the app to be open, and Focus settings can affect delivery. Repeated readings do not repeatedly notify for the same threshold. A personal limit is optional; without it, cycle alerts use the Cursor allowance.
+
+### Per-model alerts
+
+Your Cursor allowance is shared by every model, so these alerts are about where the money goes, not about a Cursor limit.
+
+- **First use of a model.** When a model shows up that this account has never used, you get a notification with what it has spent so far, and a **Monitor this model** action that opens Settings with it already listed. The first sync only learns the models you use, so you don't get a burst of notices when you install the app.
+- **Spending above your costliest model.** The app learns how much each model usually spends in 15 minutes, from the median of the last 14 days, and takes the costliest one as the reference. If any model spends more than that reference plus a threshold you choose — 50% by default — in the last 15 minutes, you get one notice that day, naming both models and, when it applies, how much more each request costs. It needs a few sessions of history before it can compare anything, and it ignores bursts under US$ 1.
+- **Monitored models.** Pick models from those you use and give each a daily limit, a cycle limit, or both. Leave a field empty for no limit.
+
+Model data comes from the usage history the app imports, so these alerts arrive within your refresh interval, not instantly.
 
 To switch accounts, use **Disconnect account** in Settings or the right-click menu, then connect again. Disconnect clears this app's website session and archives account-specific metrics locally. It preserves presentation settings.
 
@@ -155,6 +166,7 @@ No third-party runtime packages, Node.js, Electron, or Python installation are r
 - Usage metrics and preferences stay in `~/Library/Application Support/CursorUsage/`.
 - The app does not request an API key or run another AI tool to collect usage.
 - Authentication happens in the official Cursor flow. The app does not handle MFA codes itself.
+- The names of the models this account has used are kept in `models-seen.json`, so a first use can be recognized. Disconnecting archives it with the account's other metrics.
 - After a browser sign-in, the session is kept in `browser-session.json` in that folder, readable only by your user, and renewed about a day before it expires. Disconnecting the account deletes it.
 - Email and repository columns from the CSV are discarded. A digest identifies the account in imported metrics; exports containing multiple accounts are rejected.
 - Temporary CSV files are removed after import. Quota observations are retained for up to 40 days; disconnected account metrics remain in a local archive until removed.
@@ -164,7 +176,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.3.1, build 15**.
+Current version: **3.4.0, build 16**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 

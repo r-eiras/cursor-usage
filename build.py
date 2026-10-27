@@ -48,12 +48,13 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     test('Renewal',['RenewalAlerts.swift'])
     test('BrowserSignIn',['BrowserSignIn.swift'])
     test('AppUpdater',['ReleaseUpdates.swift','AppUpdater.swift'])
+    test('ModelAlerts',['Usage.swift','Analytics.swift','Preferences.swift','ModelAlerts.swift'])
     if args.ui_tests:
-        test('PreferencesUI',['Usage.swift','Analytics.swift','Preferences.swift','LoginItemManager.swift','CursorAlertControls.swift','CursorMark.swift','PreferencesPanel.swift'],['AppKit','ServiceManagement'])
+        test('PreferencesUI',['Usage.swift','Analytics.swift','Preferences.swift','LoginItemManager.swift','CursorAlertControls.swift','ModelAlertControls.swift','CursorMark.swift','SettingsStyle.swift','PreferencesPanel.swift'],['AppKit','ServiceManagement'])
         test('SessionCookies',[],['AppKit','WebKit'])
         test('StatusMenu',['StatusMenu.swift','StatusItemPlacement.swift'],['AppKit'])
         test('BrowserButton',['BrowserSignInButton.swift'],['AppKit'])
-        test('CardUI',['Usage.swift','Analytics.swift','Preferences.swift','QuotaPace.swift','CursorMark.swift','QuotaCard.swift'],['AppKit'])
+        test('CardUI',['Usage.swift','Analytics.swift','Preferences.swift','QuotaPace.swift','CursorMark.swift','SettingsStyle.swift','QuotaCard.swift'],['AppKit'])
         test('WebView',['Usage.swift'],['AppKit','WebKit'])
     app = work/'Cursor Usage.app'
     binary = app/'Contents/MacOS/CursorUsage'
@@ -66,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     resources.mkdir(parents=True,exist_ok=True)
     shutil.copy2(root/'Assets/Cursor.png',resources/'Cursor.png')
     with (app/'Contents/Info.plist').open('wb') as output:
-        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.3.1','CFBundleVersion':'15','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
+        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.4.0','CFBundleVersion':'16','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
     run('codesign','--force','--sign','-',str(app))
     # Replace the bundle atomically; never overwrite a running signed executable.
     destination = root/'Cursor Usage.app'
