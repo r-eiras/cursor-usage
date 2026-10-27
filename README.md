@@ -26,7 +26,7 @@ If the sign-in page in that window doesn't work — for example, your Google acc
 
 That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
-**Current version: 3.3.0 · build 14 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
+**Current version: 3.3.1 · build 15 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
 | --- | --- |
@@ -35,7 +35,7 @@ That command is the way to install the app, and the same command updates it late
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.3.0`. Developers can build from source instead; see [Build and test](#build-and-test).
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.3.1`. Developers can build from source instead; see [Build and test](#build-and-test).
 
 ### The app vanishes, or no icon appears
 
@@ -164,7 +164,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.3.0, build 14**.
+Current version: **3.3.1, build 15**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 

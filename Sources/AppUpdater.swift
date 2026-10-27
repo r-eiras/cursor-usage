@@ -46,6 +46,20 @@ struct AppUpdater {
         ["/bin/sh", "-c", "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.2; done; \(opener) \"$0\"", app.path]
     }
 
+    // Notices about the installed version, or an older one, no longer offer anything.
+    static func staleUpdateNotices(_ identifiers: [String], installed: String) -> [String] {
+        guard let current = ReleaseVersion(installed) else { return [] }
+        return identifiers.filter { $0.hasPrefix("update-") && ReleaseVersion(String($0.dropFirst(7))).map { $0 <= current } == true }
+    }
+    // Updates are staged in the app's own folder, on the same volume as Applications, so the swap stays a rename and
+    // the download is removed by path. macOS does not let an app list item-replacement folders to clean them later.
+    static func stagingFolder(in appFolder: URL = AppFolder.url) -> URL { appFolder.appendingPathComponent("update") }
+    static func makeStagingFolder(in appFolder: URL = AppFolder.url) throws -> URL {
+        let folder = stagingFolder(in: appFolder); try? FileManager.default.removeItem(at: folder)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        return folder
+    }
+
     static func digest(in manifest: Data, for archive: String) -> String? {
         ((try? JSONSerialization.jsonObject(with: manifest) as? [String: Any])?["archives"] as? [String: Any])?[archive] as? String
     }

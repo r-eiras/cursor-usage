@@ -26,7 +26,7 @@ Se a página de login dessa janela não funcionar — por exemplo, sua conta Goo
 
 Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [Por que só este comando](#por-que-só-este-comando) traz o motivo, se você quiser.
 
-**Versão atual: 3.3.0 · build 14 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
+**Versão atual: 3.3.1 · build 15 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 
 | Você precisa de | Requisito |
 | --- | --- |
@@ -35,7 +35,7 @@ Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [P
 | Conta | Uma conta do Cursor com uso disponível no painel oficial. |
 | Conexão | Internet para entrar na conta e atualizar o consumo. |
 
-Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.3.0`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
+Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.3.1`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
 
 ### O app desaparece, ou nenhum ícone aparece
 
@@ -158,7 +158,7 @@ Não publique cookies, exports brutos, URLs de autenticação ou arquivos pessoa
 
 ## Build, testes e distribuição
 
-Versão atual: **3.3.0, build 14**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
+Versão atual: **3.3.1, build 15**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
 
 ```sh
 python3 build.py

@@ -84,6 +84,16 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    // After an update, notices about the version now installed, or an older one, are stale.
+    func clearUpdateNotices(installed: String) {
+        Task { @MainActor in
+            let delivered = AppUpdater.staleUpdateNotices(await self.center.deliveredNotifications().map(\.request.identifier), installed: installed)
+            if !delivered.isEmpty { self.center.removeDeliveredNotifications(withIdentifiers: delivered) }
+            let pending = AppUpdater.staleUpdateNotices(await self.center.pendingNotificationRequests().map(\.identifier), installed: installed)
+            if !pending.isEmpty { self.center.removePendingNotificationRequests(withIdentifiers: pending) }
+        }
+    }
+
     private func deliver(_ alerts: [BudgetAlert], sound: Bool, releasesCheck: Bool) {
         let generation = policyGeneration
         center.getNotificationSettings { [weak self] settings in

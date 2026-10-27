@@ -71,6 +71,8 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         notifications = BudgetNotifications(folder: folder)
         notifications.onStatus = { [weak self] value in self?.notificationStatus = value; self?.preferencesPanel?.setStatus(value) }
         notifications.onUpdateRequested = { [weak self] install in if install { self?.installAvailableUpdate() } else { self?.checkForUpdates() } }
+        // Leftovers of the update that installed this version: its download folder and its notice.
+        try? FileManager.default.removeItem(at: AppUpdater.stagingFolder()); notifications.clearUpdateNotices(installed: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")
         let controller = NSViewController(); controller.view = card
         popover.contentViewController = controller; popover.contentSize = QuotaCard.size
         popover.behavior = .transient; popover.delegate = self; popover.animates = false; popover.appearance = NSAppearance(named: .darkAqua)
@@ -520,16 +522,20 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         message = L("Atualizando para \(version)…", "Updating to \(version)…"); render()
         let installed = Bundle.main.bundleURL
         Task { [weak self] in
+            var folder: URL?
             do {
-                let folder = try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: installed, create: true)
-                defer { try? FileManager.default.removeItem(at: folder) }
-                let staged = try await AppUpdater().prepare(AppUpdate(version: version), in: folder)
+                let workspace = try AppUpdater.makeStagingFolder()
+                folder = workspace
+                let staged = try await AppUpdater().prepare(AppUpdate(version: version), in: workspace)
                 try AppUpdater.install(staged, over: installed)
+                // Clean up now: terminating ends the process before any deferred cleanup would run.
+                try? FileManager.default.removeItem(at: workspace)
                 let command = AppUpdater.relaunchCommand(pid: ProcessInfo.processInfo.processIdentifier, app: installed)
                 let helper = Process(); helper.executableURL = URL(fileURLWithPath: command[0]); helper.arguments = Array(command.dropFirst())
                 try? helper.run()
                 NSApp.terminate(nil)
             } catch {
+                if let folder { try? FileManager.default.removeItem(at: folder) }
                 guard let self else { return }
                 self.installingUpdate = false; self.preferencesPanel?.setUpdateChecking(false)
                 self.message = L("Atualização não concluída; esta versão continua funcionando.", "Update not completed; this version keeps working."); self.render()
