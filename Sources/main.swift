@@ -262,7 +262,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     }
     private func reportBrowserFailure(_ text: String) {
         let alert = NSAlert(); alert.icon = CursorMark.appImage(size: 64, template: false)
-        alert.messageText = L("Login pelo navegador não concluído", "Browser sign-in not completed"); alert.informativeText = text
+        alert.messageText = L("Login pelo navegador externo não concluído", "External browser sign-in not completed"); alert.informativeText = text
         if window.isVisible { alert.beginSheetModal(for: window) } else { NSApp.activate(ignoringOtherApps: true); alert.runModal() }
     }
     // Browser sign-ins last about two months; renewing a day ahead keeps the dashboard cookie from lapsing.

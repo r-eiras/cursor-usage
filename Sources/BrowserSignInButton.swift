@@ -11,8 +11,8 @@ import AppKit
         return button
     }
     static func update(_ button: NSButton, waiting: Bool) {
-        button.title = waiting ? L("Cancelar login no navegador", "Cancel browser sign-in") : L("Entrar pelo navegador (passkey)", "Sign in with browser (passkey)")
-        button.toolTip = L("Use se o login nesta janela não funcionar, como numa conta Google protegida por passkey.", "Use this if signing in here doesn't work, such as a Google account protected by a passkey.")
+        button.title = waiting ? L("Cancelar login no navegador externo", "Cancel external browser sign-in") : L("Entrar pelo navegador externo", "Sign in with external browser")
+        button.toolTip = L("Abre o login do Cursor no seu navegador. Use se o login nesta janela não funcionar, como numa conta com passkey.", "Opens Cursor's login in your browser. Use this if signing in here doesn't work, such as an account with a passkey.")
         button.sizeToFit()
         guard let host = button.superview else { return }
         host.setFrameSize(NSSize(width: button.frame.width + 12, height: host.frame.height))

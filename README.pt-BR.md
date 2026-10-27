@@ -22,7 +22,7 @@ bash install.sh
 
 Depois, abra **Cursor Usage** em Aplicativos e entre na sua conta pela página oficial do Cursor. O indicador aparece na barra de menus, perto do relógio. Não há ícone permanente no Dock.
 
-Se a página de login dessa janela não funcionar — por exemplo, sua conta Google pede uma passkey — clique em **Entrar pelo navegador (passkey)**, no canto superior direito da janela. O login do Cursor abre no seu navegador padrão, onde passkeys funcionam, e o app recebe a sessão quando você terminar. [Por que a passkey não funciona dentro da janela](#login-com-passkey).
+Se a página de login dessa janela não funcionar — por exemplo, sua conta Google pede uma passkey — clique em **Entrar pelo navegador externo**, no canto superior direito da janela. O login do Cursor abre no seu navegador padrão, onde passkeys funcionam, e o app recebe a sessão quando você terminar. Veja [Login pelo navegador externo](#login-pelo-navegador-externo).
 
 Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [Por que só este comando](#por-que-só-este-comando) traz o motivo, se você quiser.
 
@@ -66,13 +66,11 @@ Ferramentas que gravam arquivos diretamente, como o `curl`, não colocam esse at
 
 Notarizar o app com um Apple Developer ID é a única mudança que faria todos os caminhos funcionarem. Veja as [notas de distribuição](DISTRIBUTION.md).
 
-### Login com passkey
+### Login pelo navegador externo
 
-O app lê o seu consumo no painel do Cursor, que ele abre numa janela própria. O macOS só deixa o navegador embutido de um app usar passkeys em sites vinculados a esse app, então uma passkey do Google, do GitHub, da Apple ou do login da sua empresa nunca aparece ali, e o login para na etapa da passkey.
+A janela de login não consegue mostrar a passkey dos sites do Cursor: o macOS só deixa o navegador embutido de um app usar passkeys em sites vinculados a esse app. **Entrar pelo navegador externo**, no canto superior direito dessa janela, faz o login do próprio Cursor no seu navegador padrão, onde passkey, Google e SSO da empresa funcionam, e o app recebe a sessão quando você termina.
 
-**Entrar pelo navegador (passkey)**, no canto superior direito da janela de login, faz o login do próprio Cursor no seu navegador padrão, do mesmo jeito que o editor do Cursor entra. Ali a passkey funciona. Quando você termina, o app recebe a sessão e continua lendo o painel normalmente.
-
-A janela continua sendo a primeira opção, porque depende só das páginas públicas do Cursor. O login pelo navegador usa endpoints que os apps do próprio Cursor chamam, mas que o Cursor não documenta. Se o Cursor mudá-los, entre pela janela com e-mail e código.
+A janela continua sendo a primeira opção, porque depende só das páginas públicas do Cursor; o login pelo navegador externo usa endpoints que os apps do próprio Cursor chamam, mas que o Cursor não documenta. O **[guia do login pelo navegador externo](LOGIN.pt-BR.md)** explica quando usar, o passo a passo, o que acontece com a sessão e o que significa cada erro.
 
 ### Como atualizar
 

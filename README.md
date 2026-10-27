@@ -22,7 +22,7 @@ bash install.sh
 
 Then open **Cursor Usage** from Applications and sign in on Cursor's official page. The indicator appears in the menu bar, near the clock. There is no permanent Dock icon.
 
-If the sign-in page in that window doesn't work — for example, your Google account asks for a passkey — click **Sign in with browser (passkey)** at the top right of the window. Cursor's login opens in your default browser, where passkeys work, and the app picks up the session when you finish. [Why a passkey can't work inside the window](#signing-in-with-a-passkey).
+If the sign-in page in that window doesn't work — for example, your Google account asks for a passkey — click **Sign in with external browser** at the top right of the window. Cursor's login opens in your default browser, where passkeys work, and the app picks up the session when you finish. See [Sign in with an external browser](#sign-in-with-an-external-browser).
 
 That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
@@ -66,13 +66,11 @@ That is why this project offers no browser download link and no Homebrew cask: b
 
 Notarizing the app with an Apple Developer ID is the only change that would make every route work. See the [distribution notes](DISTRIBUTION.md).
 
-### Signing in with a passkey
+### Sign in with an external browser
 
-The app reads your usage from Cursor's dashboard, which it opens in its own window. macOS lets an app's built-in browser use passkeys only for websites tied to that app, so a passkey that belongs to Google, GitHub, Apple or your company's sign-in never appears there, and the sign-in stalls at the passkey step.
+The sign-in window can't show a passkey for Cursor's sites: macOS lets an app's built-in browser use passkeys only for websites tied to that app. **Sign in with external browser**, at the top right of that window, runs Cursor's own login in your default browser instead, where passkeys, Google and company SSO work, and the app picks up the session when you finish.
 
-**Sign in with browser (passkey)**, at the top right of the sign-in window, runs Cursor's own login in your default browser instead, the same way the Cursor editor signs in. Passkeys work there. When you finish, the app receives the session and goes on reading the dashboard as usual.
-
-The window stays the first option, because it relies only on Cursor's public pages. The browser sign-in uses endpoints that Cursor's own apps call but Cursor does not document. If Cursor changes them, sign in in the window with email and a code.
+The window stays the first option, because it relies only on Cursor's public pages; the external-browser sign-in uses endpoints Cursor's own apps call but does not document. The **[external browser sign-in guide](LOGIN.md)** covers when to use it, step by step, what happens to the session and what each error means.
 
 ### Update
 
