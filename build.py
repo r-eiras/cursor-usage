@@ -47,6 +47,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     test('Popover',['PopoverDismissal.swift'],['AppKit'])
     test('Renewal',['RenewalAlerts.swift'])
     test('BrowserSignIn',['BrowserSignIn.swift'])
+    test('AppUpdater',['ReleaseUpdates.swift','AppUpdater.swift'])
     if args.ui_tests:
         test('PreferencesUI',['Usage.swift','Analytics.swift','Preferences.swift','LoginItemManager.swift','CursorAlertControls.swift','CursorMark.swift','PreferencesPanel.swift'],['AppKit','ServiceManagement'])
         test('SessionCookies',[],['AppKit','WebKit'])
@@ -65,7 +66,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     resources.mkdir(parents=True,exist_ok=True)
     shutil.copy2(root/'Assets/Cursor.png',resources/'Cursor.png')
     with (app/'Contents/Info.plist').open('wb') as output:
-        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.2.0','CFBundleVersion':'13','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
+        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.3.0','CFBundleVersion':'14','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
     run('codesign','--force','--sign','-',str(app))
     # Replace the bundle atomically; never overwrite a running signed executable.
     destination = root/'Cursor Usage.app'

@@ -144,9 +144,9 @@ import AppKit
     @objc private func disconnectAccount() { onDisconnect?(); disconnect.isEnabled = canDisconnect?() ?? false }
     @objc private func aboutAction() { onAbout?() }
     @objc private func reportIssue() { onReportIssue?() }
-    func setUpdateChecking(_ checking: Bool) {
+    func setUpdateChecking(_ checking: Bool, installing: Bool = false) {
         updateButton?.isEnabled = !checking
-        updateButton?.title = checking ? L("Verificando…", "Checking…") : L("Verificar atualizações…", "Check for Updates…")
+        updateButton?.title = installing ? L("Atualizando…", "Updating…") : checking ? L("Verificando…", "Checking…") : L("Verificar atualizações…", "Check for Updates…")
     }
     @objc private func updateAction() { onCheckUpdates?() }
     @objc private func selectTab() {

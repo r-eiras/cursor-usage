@@ -26,7 +26,7 @@ Se a página de login dessa janela não funcionar — por exemplo, sua conta Goo
 
 Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [Por que só este comando](#por-que-só-este-comando) traz o motivo, se você quiser.
 
-**Versão atual: 3.2.0 · build 13 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
+**Versão atual: 3.3.0 · build 14 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 
 | Você precisa de | Requisito |
 | --- | --- |
@@ -35,7 +35,7 @@ Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [P
 | Conta | Uma conta do Cursor com uso disponível no painel oficial. |
 | Conexão | Internet para entrar na conta e atualizar o consumo. |
 
-Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.2.0`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
+Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.3.0`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
 
 ### O app desaparece, ou nenhum ícone aparece
 
@@ -76,13 +76,17 @@ A janela continua sendo a primeira opção, porque depende só das páginas púb
 
 ### Como atualizar
 
-Abra **Configurações → App → Verificar atualizações** ou use o botão direito no indicador da barra. O app consulta os releases públicos deste projeto.
+O app procura uma versão nova uma vez por dia. Quando sai uma, ele manda uma notificação e coloca **Atualizar para …** no topo do menu do botão direito. Escolha **Atualizar agora**: o app baixa a versão, confere contra os checksums e a assinatura do release, se substitui e reabre em alguns segundos. Suas preferências e a sessão da conta continuam como estavam. **Configurações → App → Verificar atualizações** faz o mesmo na hora.
 
-Para atualizar no lugar, rode o script de instalação novamente. Ele substitui o app e preserva preferências e sessão da conta:
+A primeira notificação pede permissão ao macOS uma vez, mesmo que você nunca tenha ligado os avisos de consumo. Se recusar, o item do menu continua oferecendo a atualização.
+
+Se uma atualização não puder terminar, a versão atual continua funcionando e nada é alterado. Você sempre pode reinstalar com o comando de instalação:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
 ```
+
+Versões anteriores à 3.3.0 não se atualizam sozinhas; rode esse comando uma vez para chegar lá.
 
 ## Por que ele existe
 
@@ -156,7 +160,7 @@ Não publique cookies, exports brutos, URLs de autenticação ou arquivos pessoa
 
 ## Build, testes e distribuição
 
-Versão atual: **3.2.0, build 13**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
+Versão atual: **3.3.0, build 14**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
 
 ```sh
 python3 build.py
@@ -172,7 +176,7 @@ A leitura depende do resumo mensal e do formato de CSV do Cursor. Mudanças no p
 
 Intel, outro Mac físico, primeiro login de uma conta limpa, entrega real de notificações sob diferentes modos Foco e início após reiniciar são validações separadas dos testes locais. Assinatura ad hoc não equivale a notarização.
 
-O Sobre traz links do projeto, das versões e das issues. Verificar atualizações consulta a versão pública mais recente sem token do GitHub e compara os números das versões. O usuário pode abrir a página da nova versão para baixar e instalar. Reportar problema abre um formulário vazio e não envia diagnósticos ou dados de uso automaticamente.
+O Sobre traz links do projeto, das versões e das issues. Verificar atualizações consulta a versão pública mais recente sem token do GitHub e compara os números das versões. Quando há uma versão nova, o app pode instalá-la no lugar depois de conferir o checksum do release e a assinatura do bundle, ou abrir a página da versão no GitHub. Reportar problema abre um formulário vazio e não envia diagnósticos ou dados de uso automaticamente.
 
 Use GitHub Issues para bugs reproduzíveis e sugestões objetivas. Informe versões, passos, resultado esperado e resultado observado, sem dados pessoais. Mudanças de comportamento devem incluir testes de regressão.
 

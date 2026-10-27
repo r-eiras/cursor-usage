@@ -10,6 +10,9 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
     private var checking = false
     private var policyGeneration = 0
     var onStatus: ((String) -> Void)?
+    // True when the user chose "Update now" on the notification rather than opening it.
+    var onUpdateRequested: ((Bool) -> Void)?
+    nonisolated static let updateCategory = "update", installAction = "install"
 
     init(folder: URL) {
         ledgerURL = folder.appendingPathComponent("alert-history.json")
@@ -61,6 +64,26 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
         deliver(alerts, sound: preferences.alertSound, releasesCheck: false)
     }
 
+    // Update notices need no alert turned on; the first one asks macOS for permission once.
+    func announceUpdate(version: String) {
+        let id = "update-\(version)"
+        guard !pending.contains(id), delivered[id] == nil else { return }
+        pending.insert(id)
+        Task { @MainActor in
+            defer { self.pending.remove(id) }
+            var status = await self.center.notificationSettings().authorizationStatus
+            if status == .notDetermined { status = ((try? await self.center.requestAuthorization(options: [.alert])) ?? false) ? .authorized : .denied }
+            guard status == .authorized || status == .provisional else { return }
+            self.center.setNotificationCategories([UNNotificationCategory(identifier: Self.updateCategory, actions: [UNNotificationAction(identifier: Self.installAction, title: L("Atualizar agora", "Update now"), options: [])], intentIdentifiers: [])])
+            let content = UNMutableNotificationContent(); content.categoryIdentifier = Self.updateCategory
+            content.title = L("Cursor Usage \(version) disponível", "Cursor Usage \(version) is available")
+            content.body = L("Atualize com um clique. O app reabre sozinho em alguns segundos.", "Update with one click. The app reopens by itself in a few seconds.")
+            do { try await self.center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil)) } catch { return }
+            self.delivered[id] = Date()
+            if let data = try? JSONEncoder().encode(self.delivered) { try? data.write(to: self.ledgerURL, options: .atomic) }
+        }
+    }
+
     private func deliver(_ alerts: [BudgetAlert], sound: Bool, releasesCheck: Bool) {
         let generation = policyGeneration
         center.getNotificationSettings { [weak self] settings in
@@ -95,5 +118,9 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                            withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])
+    }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let update = response.notification.request.content.categoryIdentifier == Self.updateCategory, install = response.actionIdentifier == Self.installAction
+        Task { @MainActor in if update { self.onUpdateRequested?(install) }; completionHandler() }
     }
 }

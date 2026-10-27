@@ -26,7 +26,7 @@ If the sign-in page in that window doesn't work — for example, your Google acc
 
 That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
-**Current version: 3.2.0 · build 13 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
+**Current version: 3.3.0 · build 14 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
 | --- | --- |
@@ -35,7 +35,7 @@ That command is the way to install the app, and the same command updates it late
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.2.0`. Developers can build from source instead; see [Build and test](#build-and-test).
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.3.0`. Developers can build from source instead; see [Build and test](#build-and-test).
 
 ### The app vanishes, or no icon appears
 
@@ -76,13 +76,17 @@ The window stays the first option, because it relies only on Cursor's public pag
 
 ### Update
 
-Open **Settings → App → Check for Updates** or right-click the menu-bar indicator. The app checks this project's public GitHub releases.
+The app checks for a new version once a day. When one is out, it sends a notification and adds **Update to …** at the top of the right-click menu. Choose **Update now**: the app downloads the release, checks it against the release's checksums and its signature, replaces itself and reopens in a few seconds. Your preferences and account session stay as they were. **Settings → App → Check for Updates** does the same on demand.
 
-To update in place, run the install script again. It replaces the app and keeps your preferences and account session:
+The first notification asks macOS for permission once, even if you never turned on usage alerts. If you decline, the menu item still offers the update.
+
+If an update cannot finish, the current version keeps running and nothing is changed. You can always reinstall with the install command:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/r-eiras/cursor-usage/main/install.sh | bash
 ```
+
+Versions before 3.3.0 can't update themselves; run that command once to get there.
 
 ## Why this app exists
 
@@ -162,7 +166,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.2.0, build 13**.
+Current version: **3.3.0, build 14**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 
@@ -185,7 +189,7 @@ Quota reading depends on the monthly usage summary and CSV format exposed by Cur
 
 The release source targets macOS 14+. Another physical Mac, Intel, clean-account authentication, notification delivery under different Focus settings, and startup after an actual reboot are separate acceptance checks. Local tests do not establish those outcomes.
 
-About links to this project, its releases, and its issue form. Check for Updates queries the latest public release without a GitHub token and compares numeric versions. When an update is available, you can open its GitHub release page; downloads and installation remain a user action. Report an issue opens a blank issue form and does not upload diagnostics or usage data.
+About links to this project, its releases, and its issue form. Check for Updates queries the latest public release without a GitHub token and compares numeric versions. When an update is available, the app can install it in place after verifying the release checksum and the bundle signature, or you can open its GitHub release page. Report an issue opens a blank issue form and does not upload diagnostics or usage data.
 
 ## Contributing and reporting problems
 

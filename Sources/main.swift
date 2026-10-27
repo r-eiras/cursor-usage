@@ -22,6 +22,9 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private var browserButton: NSButton?
     private var awaitingBrowserSession = false
     private var lastRenewalCheck = Date.distantPast
+    private var availableUpdate: String?
+    private var nextUpdateCheck = Date().addingTimeInterval(60)
+    private var installingUpdate = false
     private var isSignedOut = false
     private var signingOut = false
     private var loginPaused = false
@@ -67,6 +70,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         message = isSignedOut ? L("Conta desconectada", "Account disconnected") : QuotaMessages.waiting("Cursor"); analyticsMessage = isSignedOut ? L("Conecte sua conta para acompanhar o consumo.", "Connect your account to track usage.") : L("Carregando histórico…", "Loading history…")
         notifications = BudgetNotifications(folder: folder)
         notifications.onStatus = { [weak self] value in self?.notificationStatus = value; self?.preferencesPanel?.setStatus(value) }
+        notifications.onUpdateRequested = { [weak self] install in if install { self?.installAvailableUpdate() } else { self?.checkForUpdates() } }
         let controller = NSViewController(); controller.view = card
         popover.contentViewController = controller; popover.contentSize = QuotaCard.size
         popover.behavior = .transient; popover.delegate = self; popover.animates = false; popover.appearance = NSAppearance(named: .darkAqua)
@@ -116,13 +120,15 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private func tick() {
         if !isSignedOut && !loginPaused && Date().timeIntervalSince(lastRefresh) >= preferences.syncInterval.seconds && (!window.isVisible || webView?.url?.path == dashboard.path) { refresh() }
         if Date().timeIntervalSince(lastRenewalCheck) >= 3600 { lastRenewalCheck = Date(); renewBrowserSessionIfNeeded() }
+        if Date() >= nextUpdateCheck { nextUpdateCheck = Date().addingTimeInterval(86400); checkForUpdatesQuietly() }
         readUsage(); releasePageIfSynced(); render()
     }
     @objc private func togglePopover() {
         guard let button = status.button else { return }
         if let event = NSApp.currentEvent, event.type == .rightMouseUp {
             closePopovers()
-            let menu = StatusMenu.make(target: self, settings: #selector(showPreferences), about: #selector(showAbout), updates: #selector(checkForUpdates), issues: #selector(reportIssue), logout: #selector(disconnectAccount), canDisconnect: !isSignedOut && !signingOut, quit: #selector(quitFromMenu))
+            let menu = StatusMenu.make(target: self, settings: #selector(showPreferences), about: #selector(showAbout), updates: #selector(checkForUpdates), issues: #selector(reportIssue), logout: #selector(disconnectAccount), canDisconnect: !isSignedOut && !signingOut, quit: #selector(quitFromMenu),
+                                     update: availableUpdate.map { (L("Atualizar para \($0)…", "Update to \($0)…"), #selector(installAvailableUpdate)) })
             NSMenu.popUpContextMenu(menu, with: event, for: button)
             return
         }
@@ -475,9 +481,9 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
                 alert.messageText = L("Você está atualizado", "You are up to date")
                 alert.informativeText = L("Cursor Usage \(version). Nenhuma versão mais recente foi publicada.", "Cursor Usage \(version). No newer version has been published.")
             case .available(let latest, let url):
-                hasUpdate = true; releaseURL = url
+                hasUpdate = true; releaseURL = url; self.availableUpdate = latest
                 alert.messageText = L("Nova versão disponível", "A new version is available")
-                alert.informativeText = L("Cursor Usage \(latest) está disponível. Você está usando \(version).", "Cursor Usage \(latest) is available. You are using \(version).")
+                alert.informativeText = L("Cursor Usage \(latest) está disponível. Você está usando \(version). Atualizar baixa a versão nova, confere a integridade e reabre o app.", "Cursor Usage \(latest) is available. You are using \(version). Updating downloads the new version, verifies it and reopens the app.")
             case .noRelease:
                 alert.messageText = L("Nenhuma versão publicada", "No published releases")
                 alert.informativeText = L("O repositório ainda não tem uma versão pública disponível.", "The repository does not have a public release yet.")
@@ -488,14 +494,60 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
                 alert.messageText = L("Não foi possível verificar atualizações", "Could not check for updates")
                 alert.informativeText = L("Verifique sua conexão e tente novamente. Você também pode consultar as versões no GitHub.", "Check your connection and try again. You can also view releases on GitHub.")
             }
-            alert.addButton(withTitle: hasUpdate ? L("Ver versão", "View release") : L("Entendi", "OK"))
+            alert.addButton(withTitle: hasUpdate ? L("Atualizar agora", "Update now") : L("Entendi", "OK"))
             alert.addButton(withTitle: hasUpdate ? L("Agora não", "Not now") : L("Ver versões", "View releases"))
+            if hasUpdate { alert.addButton(withTitle: L("Ver novidades", "Release notes")) }
             NSApp.activate(ignoringOtherApps: true)
             let response = alert.runModal()
-            if (hasUpdate && response == .alertFirstButtonReturn) || (!hasUpdate && response == .alertSecondButtonReturn) {
-                NSWorkspace.shared.open(releaseURL)
+            if hasUpdate, response == .alertFirstButtonReturn, let latest = self.availableUpdate { self.installUpdate(latest) }
+            else if (hasUpdate && response == .alertThirdButtonReturn) || (!hasUpdate && response == .alertSecondButtonReturn) { NSWorkspace.shared.open(releaseURL) }
+        }
+    }
+    // A daily check: a new release is announced once and stays offered in the menu until installed.
+    private func checkForUpdatesQuietly() {
+        guard !checkingForUpdates, !installingUpdate else { return }
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        Task { [weak self] in
+            guard case .available(let latest, _) = await ReleaseChecker.check(installedVersion: version), let self else { return }
+            self.availableUpdate = latest; self.notifications.announceUpdate(version: latest)
+        }
+    }
+    @objc private func installAvailableUpdate() { if let availableUpdate { installUpdate(availableUpdate) } else { checkForUpdates() } }
+    // Downloads and verifies the release, swaps the bundle and reopens the app; any failure keeps this version running.
+    private func installUpdate(_ version: String) {
+        guard !installingUpdate else { return }
+        installingUpdate = true; preferencesPanel?.setUpdateChecking(true, installing: true)
+        message = L("Atualizando para \(version)…", "Updating to \(version)…"); render()
+        let installed = Bundle.main.bundleURL
+        Task { [weak self] in
+            do {
+                let folder = try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: installed, create: true)
+                defer { try? FileManager.default.removeItem(at: folder) }
+                let staged = try await AppUpdater().prepare(AppUpdate(version: version), in: folder)
+                try AppUpdater.install(staged, over: installed)
+                let command = AppUpdater.relaunchCommand(pid: ProcessInfo.processInfo.processIdentifier, app: installed)
+                let helper = Process(); helper.executableURL = URL(fileURLWithPath: command[0]); helper.arguments = Array(command.dropFirst())
+                try? helper.run()
+                NSApp.terminate(nil)
+            } catch {
+                guard let self else { return }
+                self.installingUpdate = false; self.preferencesPanel?.setUpdateChecking(false)
+                self.message = L("Atualização não concluída; esta versão continua funcionando.", "Update not completed; this version keeps working."); self.render()
+                self.reportUpdateFailure(error as? AppUpdateError)
             }
         }
+    }
+    private func reportUpdateFailure(_ error: AppUpdateError?) {
+        let alert = NSAlert(); alert.icon = CursorMark.appImage(size: 64, template: false)
+        alert.messageText = L("Não foi possível atualizar", "Could not update")
+        switch error {
+        case .notWritable?: alert.informativeText = L("O app não tem permissão para se substituir neste local. Mova-o para Aplicativos ou instale pelo comando do README.", "The app cannot replace itself in this location. Move it to Applications or install with the command in the README.")
+        case .checksum?, .bundle?: alert.informativeText = L("O download não passou na verificação e foi descartado. Nada foi alterado.", "The download failed verification and was discarded. Nothing was changed.")
+        default: alert.informativeText = L("Verifique sua conexão e tente de novo. Esta versão continua funcionando.", "Check your connection and try again. This version keeps working.")
+        }
+        alert.addButton(withTitle: L("Entendi", "OK")); alert.addButton(withTitle: L("Ver versão no GitHub", "View release on GitHub"))
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn { NSWorkspace.shared.open(ProjectLinks.releases) }
     }
     @objc private func showPreferences() {
         closePopovers()
