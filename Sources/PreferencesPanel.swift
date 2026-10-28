@@ -117,7 +117,7 @@ import AppKit
         if tabs.selectedSegment == 1, let document = scroll.documentView { document.frame.size.height = 140 + section.frame.height + 20 }
     }
     // Opens the alerts tab with a model already on the monitored list, ready for its limits.
-    func monitor(_ model: String) { tabs.selectedSegment = 1; selectTab(); models.monitor(model) }
+    func monitor(_ model: String) { tabs.selectedSegment = 1; selectTab(); models.updateSpend(onModelChoices?() ?? []); models.monitor(model) }
     static func fittedHeight(screen: NSScreen? = NSScreen.main) -> CGFloat { min(640, ((screen?.visibleFrame.height ?? 800) * 0.8).rounded(.down)) }
     func present(_ value: AppPreferences, providerLimitMicros: Int64? = nil) {
         suspendedForMenuBar = false
@@ -193,7 +193,7 @@ import AppKit
         let assessment = onCursorAssessment?(value)
         alerts.setAssessment(allowance: assessment?.dailyLimitMicros.map { $0 / 1_000_000 }, todayUsed: assessment?.todaySpentMicros.map { Double($0) / 1_000_000 }, observedSince: nil)
     }
-    func updateReadings() { if window?.isVisible == true { changed() } }
+    func updateReadings() { if window?.isVisible == true { changed(); models.updateSpend(onModelChoices?() ?? []) } }
     func setStatus(_ value: String) { status.stringValue = value }
     func windowDidBecomeKey(_ notification: Notification) { refreshStartup() }
     private func refreshStartup() { let state = startupState?() ?? .unavailable; startup.state = state == .requiresApproval ? .mixed : (state == .enabled ? .on : .off); startupDescription.stringValue = state.message }

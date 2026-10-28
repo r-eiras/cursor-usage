@@ -68,6 +68,11 @@ import AppKit
         append(MonitoredModel(model: model)); relayout(); onChange?()
     }
     var monitoredModels: [String] { rows.map(\.model) }
+    // Keeps "This cycle" in step with each sync while settings stays open; limits being typed are left alone.
+    func updateSpend(_ choices: [Choice]) {
+        self.choices = choices
+        for row in rows { row.setSpend(choices.first { $0.model == row.model }?.cycleSpendMicros) }
+    }
 
     private func append(_ value: MonitoredModel) {
         let row = LimitRow(value, spend: choices.first { $0.model == value.model }?.cycleSpendMicros, frame: NSRect(x: 0, y: 0, width: 452, height: Self.rowHeight))
@@ -110,13 +115,13 @@ import AppKit
 @MainActor private final class LimitRow: NSView, NSTextFieldDelegate {
     let model: String
     var onChange: (() -> Void)?; var onRemove: ((LimitRow) -> Void)?
-    private let daily = NSTextField(), cycle = NSTextField()
+    private let daily = NSTextField(), cycle = NSTextField(), spent = NSTextField(labelWithString: "")
     override var isFlipped: Bool { true }
     init(_ value: MonitoredModel, spend: Int64?, frame: NSRect) {
         model = value.model; super.init(frame: frame)
         let name = NSTextField(labelWithString: value.model); name.frame = NSRect(x: 0, y: 6, width: 190, height: 18)
         name.font = .monospacedSystemFont(ofSize: 11, weight: .regular); name.lineBreakMode = .byTruncatingMiddle; name.toolTip = value.model; addSubview(name)
-        let spent = NSTextField(labelWithString: spend.map { MenuBarPresentation.money(Double($0)) } ?? "—"); spent.frame = NSRect(x: 196, y: 6, width: 84, height: 18)
+        setSpend(spend); spent.frame = NSRect(x: 196, y: 6, width: 84, height: 18)
         spent.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular); spent.textColor = .secondaryLabelColor; spent.alignment = .right; addSubview(spent)
         for (field, x, micros) in [(daily, CGFloat(288), value.dailyLimitMicros), (cycle, 360, value.cycleLimitMicros)] {
             field.frame = NSRect(x: x, y: 3, width: 66, height: 24); field.font = .systemFont(ofSize: 11); field.placeholderString = "—"; field.delegate = self
@@ -128,6 +133,7 @@ import AppKit
         remove.frame = NSRect(x: 432, y: 5, width: 20, height: 20); remove.isBordered = false; remove.contentTintColor = .secondaryLabelColor; addSubview(remove)
     }
     required init?(coder: NSCoder) { fatalError() }
+    func setSpend(_ micros: Int64?) { spent.stringValue = micros.map { MenuBarPresentation.money(Double($0)) } ?? "—" }
     // Empty means no limit; anything else must be a positive amount.
     func limits() -> (daily: Int64?, cycle: Int64?)? {
         var result: [Int64?] = []

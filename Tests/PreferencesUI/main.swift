@@ -156,6 +156,12 @@ MainActor.assumeIsolated {
         fields()[1].stringValue = "0"
         check(models.draft() == nil, "A zero limit cannot be saved")
         fields()[1].stringValue = "abc"; check(models.draft() == nil, "Text that is not an amount cannot be saved")
+        func spentLabels() -> [String] { models.subviews.flatMap(\.subviews).compactMap { $0 as? NSTextField }.filter { !$0.isEditable }.map(\.stringValue) }
+        fields()[1].stringValue = ""
+        check(spentLabels().contains(MenuBarPresentation.money(15_000_000)), "A monitored row shows the model's cycle spend")
+        models.updateSpend([ModelAlertControls.Choice(model: "gemini-argon", cycleSpendMicros: 42_000_000, isNew: false)])
+        check(spentLabels().contains(MenuBarPresentation.money(42_000_000)) && !spentLabels().contains(MenuBarPresentation.money(15_000_000)), "A sync while settings is open updates the row's cycle spend")
+        check(models.draft()?.monitored == [MonitoredModel(model: "gemini-argon", dailyLimitMicros: 20_500_000, cycleLimitMicros: nil)], "Updating the spend keeps the limits being typed")
         fields()[1].stringValue = "50"
         let rate = models.subviews.compactMap { $0 as? NSButton }.first { $0.title.contains("50%") }!
         let slider = models.subviews.compactMap { $0 as? NSSlider }.first!
