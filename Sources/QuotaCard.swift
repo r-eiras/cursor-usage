@@ -245,14 +245,19 @@ import AppKit
         NSColor.white.withAlphaComponent(0.08).setStroke(); background.lineWidth = 1; background.stroke()
         NSColor.white.withAlphaComponent(0.025).setFill(); NSBezierPath(roundedRect: NSRect(x: 10, y: 170, width: 300, height: 181), xRadius: 12, yRadius: 12).fill()
         text("Cursor Usage", x: 42, y: 16, width: 134, size: 13, weight: .semibold)
-        text(isPreview ? L("PRÉVIA", "PREVIEW") : snapshot.map { String(format: preferences.cursorUsageBasis == .used ? L("%.1f%% usado", "%.1f%% used") : L("%.1f%% disponível", "%.1f%% available"), (preferences.cursorUsageBasis == .used ? $0.usedFraction : max(0, 1 - $0.usedFraction)) * 100) } ?? L("SEM CONEXÃO", "NOT CONNECTED"), x: 180, y: 19, width: 122, size: 10, color: QuotaStyle.muted, align: .right)
-        text(snapshot.map { QuotaStyle.money(Double(preferences.cursorUsageBasis == .used ? $0.spentCents : $0.remainingCents) * 10_000) } ?? "—", y: 43, width: 180, size: 22, weight: .medium, mono: true)
+        text(isPreview ? L("PRÉVIA", "PREVIEW") : snapshot.flatMap { $0.isIncludedPercent ? L("PLANO PESSOAL", "PERSONAL PLAN") : nil } ?? snapshot.map { String(format: preferences.cursorUsageBasis == .used ? L("%.1f%% usado", "%.1f%% used") : L("%.1f%% disponível", "%.1f%% available"), (preferences.cursorUsageBasis == .used ? $0.usedFraction : max(0, 1 - $0.usedFraction)) * 100) } ?? L("SEM CONEXÃO", "NOT CONNECTED"), x: 180, y: 19, width: 122, size: 10, color: QuotaStyle.muted, align: .right)
+        text(snapshot.map { $0.isIncludedPercent ? Self.percent(preferences.cursorUsageBasis == .used ? $0.usedFraction : max(0, 1 - $0.usedFraction)) : QuotaStyle.money(Double(preferences.cursorUsageBasis == .used ? $0.spentCents : $0.remainingCents) * 10_000) } ?? "—", y: 43, width: 180, size: 22, weight: .medium, mono: true)
         text(preferences.cursorUsageBasis == .used ? L("consumidos", "used") : L("disponíveis", "available"), x: 196, y: 51, width: 106, size: 10, color: QuotaStyle.muted, align: .right)
         NSColor(calibratedWhite: 0.18, alpha: 1).setFill(); NSBezierPath(roundedRect: NSRect(x: 18, y: 77, width: 284, height: 4), xRadius: 2, yRadius: 2).fill()
         (stale ? QuotaStyle.muted : cyclePace?.exceedsQuota == true ? NSColor.systemOrange : QuotaStyle.mint).setFill(); NSBezierPath(roundedRect: NSRect(x: 18, y: 77, width: 284 * min(1, snapshot.map { preferences.cursorUsageBasis == .used ? $0.usedFraction : max(0, 1 - $0.usedFraction) } ?? 0), height: 4), xRadius: 2, yRadius: 2).fill()
         QuotaStyle.paceMarker(cyclePace, in: NSRect(x: 18, y: 77, width: 284, height: 4), remaining: preferences.cursorUsageBasis == .remaining)
         let resetFormatter = DateFormatter(); resetFormatter.locale = AppLanguage.locale; resetFormatter.timeZone = TimeZone(secondsFromGMT: 0); resetFormatter.dateFormat = "d MMM"
+        if let snapshot, snapshot.isIncludedPercent {
+            let extra = snapshot.onDemandSpentCents.map { L(" · extra \(QuotaStyle.money(Double($0) * 10_000))", " · extra \(QuotaStyle.money(Double($0) * 10_000))") } ?? ""
+            text(L("Cota incluída · renova \(resetFormatter.string(from: snapshot.resetDate))\(extra)", "Included usage · renews \(resetFormatter.string(from: snapshot.resetDate))\(extra)"), y: 87, size: 8.5, color: QuotaStyle.muted)
+        } else {
         text(snapshot.map { L("\(QuotaStyle.money(Double($0.spentCents) * 10_000)) de \(QuotaStyle.money(Double($0.limitCents) * 10_000)) · renova \(resetFormatter.string(from: $0.resetDate))", "\(QuotaStyle.money(Double($0.spentCents) * 10_000)) of \(QuotaStyle.money(Double($0.limitCents) * 10_000)) · renews \(resetFormatter.string(from: $0.resetDate))") } ?? message, y: 87, size: 8.5, color: QuotaStyle.muted)
+        }
         if tabs.selectedSegment == 0 { drawSummary() }
         else if tabs.selectedSegment == 2 { drawBudget() }
         else {
@@ -267,7 +272,34 @@ import AppKit
         else { footer = analyticsMessage }
         if updateButton.isHidden { text(footer, y: 370, width: 169, size: 9, color: QuotaStyle.muted) }
     }
+    static func percent(_ fraction: Double) -> String { localizedDecimal(String(format: fraction * 100 < 1 && fraction > 0 ? "%.1f%%" : "%.0f%%", fraction * 100)) }
+    // A personal plan: the share of its included usage, then any money spent beyond it on demand.
+    private func drawIncluded(_ budget: BudgetAssessment) {
+        let resetFormatter = DateFormatter(); resetFormatter.locale = AppLanguage.locale; resetFormatter.timeZone = TimeZone(secondsFromGMT: 0); resetFormatter.dateFormat = "d MMM"
+        text(L("COTA INCLUÍDA DO PLANO", "PLAN'S INCLUDED USAGE"), y: 176, size: 9, weight: .medium, color: QuotaStyle.muted)
+        text(L("\(Self.percent(budget.fraction)) usada", "\(Self.percent(budget.fraction)) used"), y: 194, size: 16, weight: .medium, mono: true)
+        text(L("renova \(resetFormatter.string(from: budget.cycle.end))", "renews \(resetFormatter.string(from: budget.cycle.end))"), x: 170, y: 199, width: 132, size: 10, color: QuotaStyle.muted, align: .right)
+        NSColor(calibratedWhite: 0.18, alpha: 1).setFill(); NSRect(x: 18, y: 215, width: 284, height: 5).fill()
+        (budget.fraction >= 1 ? NSColor.systemOrange : QuotaStyle.mint).setFill(); NSRect(x: 18, y: 215, width: 284 * min(1, budget.fraction), height: 5).fill()
+        if preferences.notifyCycle { NSColor.systemOrange.setFill(); NSRect(x: 18 + 284 * Double(preferences.alertPercent) / 100, y: 212, width: 1, height: 11).fill() }
+        QuotaStyle.paceMarker(cyclePace, in: NSRect(x: 18, y: 215, width: 284, height: 5), remaining: false)
+        if let pace = cyclePace { text("\(pace.label) · \(L("estimativa linear", "linear estimate"))", y: 224, size: 8, color: pace.exceedsQuota ? .systemOrange : QuotaStyle.muted) }
+        // Money beyond the included usage, when the plan allows it.
+        text(L("DINHEIRO EXTRA · SOB DEMANDA", "EXTRA MONEY · ON DEMAND"), y: 248, size: 9, weight: .medium, color: QuotaStyle.muted)
+        if let spent = snapshot?.onDemandSpentCents, let limit = snapshot?.onDemandLimitCents {
+            let fraction = Double(spent) / Double(limit)
+            text(L("\(QuotaStyle.money(Double(spent) * 10_000)) de \(QuotaStyle.money(Double(limit) * 10_000))", "\(QuotaStyle.money(Double(spent) * 10_000)) of \(QuotaStyle.money(Double(limit) * 10_000))"), y: 264, size: 14, weight: .medium, mono: true)
+            NSColor(calibratedWhite: 0.18, alpha: 1).setFill(); NSRect(x: 18, y: 288, width: 284, height: 3).fill()
+            (fraction >= 0.9 ? NSColor.systemOrange : QuotaStyle.mint).setFill(); NSRect(x: 18, y: 288, width: 284 * min(1, fraction), height: 3).fill()
+            text(L("Limite que você definiu no Cursor para gastar além da cota.", "The limit you set in Cursor for spending beyond the quota."), y: 298, size: 9, color: QuotaStyle.muted)
+        } else {
+            text(L("Nenhum dinheiro extra ligado.", "No extra money turned on."), y: 264, size: 11, weight: .medium)
+            text(L("Em 100% o uso pausa até renovar. Nos planos pagos, ligue em Spending.", "At 100% usage pauses until it renews. Paid plans can turn it on under Spending."), y: 282, size: 10, color: QuotaStyle.muted)
+        }
+        text(preferences.notifyCycle ? L("Aviso aos \(preferences.alertPercent)% da cota", "Alert at \(preferences.alertPercent)% of the quota") : L("Avisos desligados · personalize na engrenagem", "Alerts off · customize under the gear"), y: 338, size: 8, color: QuotaStyle.muted)
+    }
     private func drawBudget() {
+        if let budget, budget.isIncludedPercent { drawIncluded(budget); return }
         guard let budget else { text(L("Sincronize a conta para calcular a meta.", "Sync the account to calculate the goal."), y: 200, size: 11, color: QuotaStyle.muted); return }
         text(preferences.personalBudgetEnabled ? L("SUA META NO CICLO", "YOUR CYCLE GOAL") : L("COTA OFICIAL DO CICLO", "OFFICIAL CYCLE QUOTA"), y: 176, size: 9, weight: .medium, color: QuotaStyle.muted)
         text("\(QuotaStyle.money(Double(budget.spentMicros))) / \(QuotaStyle.money(Double(budget.targetMicros)))", y: 194, size: 16, weight: .medium, mono: true)

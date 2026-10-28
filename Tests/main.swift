@@ -37,4 +37,20 @@ check(DashboardLocation.destination(for: URL(string: "https://authenticator.curs
       "Do not interrupt the sign-in flow")
 check(DashboardLocation.destination(for: URL(string: "https://cursor.com.attacker.example/dashboard")) == .signIn,
       "Never treat another host as the dashboard")
+// Personal plans: the dashboard overview shows a share of the included usage, not dollars.
+let overview = "Renan\nFree\nOverview\nYour included usage\n37% used\nResets 4 Nov 2026\nPremium"
+let included = try UsageParser.parseIncluded(overview, plan: "Free", at: Date(timeIntervalSince1970: 1792688400))
+check(included.isIncludedPercent && included.spentCents == 3700 && included.limitCents == 10_000 && included.plan == "Free", "A personal plan's share is read as hundredths of a percent of 10,000")
+check(Calendar(identifier: .gregorian).dateComponents(in: TimeZone(secondsFromGMT: 0)!, from: included.resetDate).day == 4, "The personal reset date is read")
+check((try? UsageParser.parseIncluded("Your included usage 12.5% used Resets Nov 4, 2026"))?.spentCents == 1250, "Decimal shares are kept")
+check((try? UsageParser.parseIncluded("Your monthly usage $250.00 / $1,000.00 Resets Nov 1, 2026")) == nil && (try? UsageParser.parse(overview)) == nil, "Each parser only accepts its own kind of account")
+let legacy = try JSONDecoder().decode(UsageSnapshot.self, from: Data(#"{"spentCents":100,"limitCents":200,"resetDate":0,"observedAt":0}"#.utf8))
+check(legacy.kind == nil && !legacy.isIncludedPercent, "Readings saved before personal accounts stay dollar readings")
+let spendingPaid = "Spending\nOn-Demand Usage\nUsed this cycle\n$12.40 / $50.00\nEdit limit"
+check(UsageParser.parseOnDemand(spendingPaid).map { [$0.spentCents, $0.limitCents] } == [1240, 5000], "On-demand money is read with its limit")
+check(UsageParser.parseOnDemand("On-Demand Usage US$ 3.00 of US$ 20.00")?.limitCents == 2000, "Either separator is understood")
+check(UsageParser.parseOnDemand("Spending\nOn-Demand Usage\nEnable on-demand usage to go beyond your plan's included usage. Requires a paid plan.") == nil, "A free plan has no on-demand money")
+check(UsageParser.parseOnDemand("Premium R$154.90 /mo. $20 / $40") == nil, "Amounts outside the on-demand section are ignored")
+check(DashboardLocation.destination(for: URL(string: "https://cursor.com/api/auth/bootstrap-cursor-web-target?x=1")) == .authRedirect, "Cursor's auth bootstrap is a step on the way, not a sign-in")
+check(DashboardLocation.destination(for: URL(string: "https://cursor.com.attacker.example/api/auth/bootstrap")) == .signIn, "Only Cursor's own auth steps pass")
 print("All quota and post-login navigation scenarios passed")

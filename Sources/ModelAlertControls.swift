@@ -66,7 +66,7 @@ import AppKit
 
     func present(_ value: Draft, choices: [Choice]) {
         self.choices = choices
-        newModel.state = value.notifyNewModel ? .on : .off; rate.state = value.notifyRate ? .on : .off
+        newModel.state = value.notifyNewModel ? .on : .off; rate.state = value.notifyRate ? .on : .off; presentedRate = value.notifyRate
         ratePercent = value.ratePercent; rateAmountMicros = value.rateAmountMicros; savedReference = value.rateReference
         rateUnit.selectItem(at: RateThresholdUnit.allCases.firstIndex(of: value.rateUnit)!); showThreshold(); fillReferences()
         rows.forEach { $0.removeFromSuperview() }; rows = []
@@ -74,7 +74,7 @@ import AppKit
     }
     func draft() -> Draft? {
         guard readThreshold() else { return nil }
-        var value = Draft(notifyNewModel: newModel.state == .on, notifyRate: rate.state == .on, ratePercent: ratePercent)
+        var value = Draft(notifyNewModel: newModel.state == .on, notifyRate: personalAccount ? presentedRate : rate.state == .on, ratePercent: ratePercent)
         value.rateUnit = selectedUnit; value.rateAmountMicros = rateAmountMicros; value.rateReference = selectedReference
         for row in rows {
             guard let limits = row.limits() else { return nil }
@@ -98,7 +98,7 @@ import AppKit
         let row = LimitRow(value, spend: choices.first { $0.model == value.model }, frame: NSRect(x: 0, y: 0, width: 452, height: Self.rowHeight))
         row.onChange = { [weak self] in self?.onChange?() }
         row.onRemove = { [weak self] row in self?.rows.removeAll { $0 === row }; row.removeFromSuperview(); self?.relayout(); self?.onChange?() }
-        rows.append(row); addSubview(row)
+        row.setEnabled(!personalAccount); rows.append(row); addSubview(row)
     }
     private func relayout() {
         for (index, row) in rows.enumerated() { row.frame.origin = NSPoint(x: 0, y: Self.listTop + CGFloat(index) * Self.rowHeight) }
@@ -109,8 +109,12 @@ import AppKit
         let height = footnote.frame.maxY + 4
         if frame.height != height { frame.size.height = height; onResize?() }
     }
+    // A personal account reports no dollar cost per request, so the pace alert and dollar limits are not offered.
+    var personalAccount = false { didSet { rate.state = personalAccount ? .off : (presentedRate ? .on : .off); refresh(); rows.forEach { $0.setEnabled(!personalAccount) } } }
+    private var presentedRate = true
     private func refresh() {
-        for control in [rateThreshold, rateUnit, rateReference] as [NSControl] { control.isEnabled = rate.state == .on }
+        rate.isEnabled = !personalAccount; add.isEnabled = !personalAccount
+        for control in [rateThreshold, rateUnit, rateReference] as [NSControl] { control.isEnabled = !personalAccount && rate.state == .on }
         rateAbove.alphaValue = rate.state == .on ? 1 : 0.5; paceInfo.alphaValue = rate.state == .on ? 1 : 0.5
         showPace()
     }
@@ -205,6 +209,7 @@ import AppKit
         remove.frame = NSRect(x: 432, y: 5, width: 20, height: 20); remove.isBordered = false; remove.contentTintColor = .secondaryLabelColor; addSubview(remove)
     }
     required init?(coder: NSCoder) { fatalError() }
+    func setEnabled(_ enabled: Bool) { daily.isEnabled = enabled; cycle.isEnabled = enabled }
     func setSpend(_ spend: ModelAlertControls.Choice?) {
         daySpent.stringValue = spend.map { MenuBarPresentation.money(Double($0.daySpendMicros)) } ?? "—"
         cycleSpent.stringValue = spend.map { MenuBarPresentation.money(Double($0.cycleSpendMicros)) } ?? "—"

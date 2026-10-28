@@ -9,6 +9,9 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private let popover = NSPopover()
     private let card = QuotaCard(frame: NSRect(origin: .zero, size: QuotaCard.size))
     private let exporter = UsageExporter()
+    private let includedReader = IncludedUsageReader()
+    private var pausedBy = ""
+    private var includedReadFor = Date.distantPast
     private var popoverDismissal: PopoverDismissal!
     private var hoverTimer: Timer?
     private var hoverState = HoverDismissalState()
@@ -144,7 +147,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         }
         if popover.isShown && hoveredByPointer { return }
         if popover.isShown { popover.performClose(nil) }
-        else { preferencesPanel?.suspendForMenuBar(); render(forceCard: true); popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY) }
+        else { render(forceCard: true); popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY) }
     }
     @objc(mouseEntered:) func mouseEntered(with event: NSEvent) {
         guard preferences.menuOpenBehavior == .hoverAndClick, !window.isVisible, !popover.isShown else { return }
@@ -199,7 +202,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         ensureWebView().load(URLRequest(url: requestedDashboard())); render()
     }
     private func releasePageIfSynced() {
-        guard !pageIdle, !window.isVisible, lastRead >= lastRefresh, !exporter.isBusy, !exportInFlight,
+        guard !pageIdle, !window.isVisible, lastRead >= lastRefresh, !exporter.isBusy, !exportInFlight, !includedReader.isBusy,
               historySettled || Date().timeIntervalSince(lastRefresh) > 90 else { return }
         refreshGeneration += 1
         releaseBrowser()
@@ -293,12 +296,12 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     }
 
     private func pauseLogin() {
-        loginPaused = true; refreshGeneration += 1; exporter.cancelAll(); exportInFlight = false; releaseBrowser()
+        loginPaused = true; refreshGeneration += 1; exporter.cancelAll(); includedReader.cancel(); exportInFlight = false; releaseBrowser()
         message = L("Conecte sua conta para atualizar a cota.", "Connect your account to update the quota."); render()
     }
     func windowWillClose(_ notification: Notification) {
         guard (notification.object as? NSWindow) === window, let webView,
-              history.isEmpty || connectionFailed || DashboardLocation.destination(for: webView.url) == .signIn else { return }
+              connectionFailed || DashboardLocation.destination(for: webView.url) == .signIn else { return }
         pauseLogin()
     }
     private func readUsage() {
@@ -329,32 +332,53 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             if let error { self.extractionDiagnostic["error"] = error.localizedDescription }
             guard error == nil, let text = extraction["summary"] as? String,
                   let reading = try? UsageParser.parse(text) else {
+                // No dollar summary on a loaded usage page: a personal plan, whose quota is on the overview.
+                if error == nil, extraction["usagePage"] as? Bool == true { self.readIncludedUsage(generation: generation); return }
                 self.message = QuotaMessages.unavailable("Cursor")
                 self.lastRead = .distantPast
                 self.render()
                 return
             }
-            let firstConnection = self.history.isEmpty || self.awaitingBrowserSession; self.awaitingBrowserSession = false
-            self.lastRead = self.sourceLoadedAt
-            self.message = QuotaMessages.synced("Cursor")
-            // Monthly cycle: a new reset a month ahead after the previous one passed is a renewal.
-            let renewal = RenewalDetector.event( previousReset: self.history.last?.resetDate, currentReset: reading.resetDate, observedAt: Date())
-            self.notifications.announceRenewals(renewal.map { [$0] } ?? [], preferences: self.preferences)
-            if self.history.last.map({ Date().timeIntervalSince($0.observedAt) >= 300 ||
-                $0.spentCents != reading.spentCents || $0.limitCents != reading.limitCents ||
-                $0.resetDate != reading.resetDate }) ?? true {
-                self.history.append(reading)
-                self.history = self.history.filter { Date().timeIntervalSince($0.observedAt) < 40 * 86400 }
-                self.save()
-            }
-            self.maybeExport()
-            self.render()
-            if firstConnection && self.window.isVisible {
-                self.window.orderOut(nil)
-                if let button = self.status.button {
-                    self.render(forceCard: true)
-                    self.popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-                }
+            self.accept(reading, loadedAt: self.sourceLoadedAt)
+        }
+    }
+    // Once per refresh, read the included usage of a personal plan; the CSV export keeps running on the usage page.
+    private func readIncludedUsage(generation: Int) {
+        maybeExport()
+        guard !includedReader.isBusy, includedReadFor != lastRefresh else { return }
+        includedReadFor = lastRefresh
+        if history.last?.isIncludedPercent != true {
+            message = L("Conta pessoal conectada. Buscando a cota incluída…", "Personal account connected. Fetching its included usage…"); render()
+        }
+        let loadedAt = Date()
+        includedReader.read { [weak self] reading in
+            guard let self, generation == self.refreshGeneration else { return }
+            guard let reading else { self.message = QuotaMessages.unavailable("Cursor"); self.render(); return }
+            self.accept(reading, loadedAt: loadedAt)
+        }
+    }
+    private func accept(_ reading: UsageSnapshot, loadedAt: Date) {
+        let firstConnection = history.isEmpty || awaitingBrowserSession; awaitingBrowserSession = false
+        lastRead = loadedAt
+        message = QuotaMessages.synced("Cursor")
+        // A new reset after the previous one passed is a renewal: about a month ahead, or a week for a personal plan.
+        let renewal = RenewalDetector.event(previousReset: history.last?.resetDate, currentReset: reading.resetDate, observedAt: Date(),
+                                            minimumDaysAhead: reading.isIncludedPercent ? 3 : 15)
+        notifications.announceRenewals(renewal.map { [$0] } ?? [], preferences: preferences)
+        if history.last.map({ Date().timeIntervalSince($0.observedAt) >= 300 ||
+            $0.spentCents != reading.spentCents || $0.limitCents != reading.limitCents ||
+            $0.resetDate != reading.resetDate || $0.kind != reading.kind || $0.onDemandSpentCents != reading.onDemandSpentCents }) ?? true {
+            history.append(reading)
+            history = history.filter { Date().timeIntervalSince($0.observedAt) < 40 * 86400 }
+            save()
+        }
+        maybeExport()
+        render()
+        if firstConnection && window.isVisible {
+            window.orderOut(nil)
+            if let button = status.button {
+                render(forceCard: true)
+                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             }
         }
     }
@@ -406,6 +430,9 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             if value as? Bool == true {
                 self.lastCSVAttempt = Date(); self.exportInFlight = true
                 self.analyticsMessage = L("Baixando histórico do Cursor…", "Downloading Cursor history…")
+            } else if value as? String == "empty" {
+                self.lastCSVAttempt = Date(); self.historySettled = true
+                self.analyticsMessage = L("Sem uso registrado no período", "No usage recorded in the period"); self.render()
             }
         }
     }
@@ -443,7 +470,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             card.setPaces(modelPaceValues())
         }
         notifications.evaluate(budget, preferences: preferences, quotaFresh: !stale)
-        let statusData: [String: Any] = ["version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development", "pid": ProcessInfo.processInfo.processIdentifier, "readings": history.count, "events": dataset?.events.count ?? 0, "message": message, "analytics": analyticsMessage, "loading": webView?.isLoading ?? false, "dashboardResident": webView != nil, "signedOut": isSignedOut, "loginPaused": loginPaused, "statusVisible": status.isVisible, "statusWindowVisible": status.button?.window?.isVisible ?? false, "placementRecoveries": placementRecoveries, "statusSafeArea": status.button?.window?.screen?.auxiliaryTopRightArea.map { NSStringFromRect($0) } ?? "", "statusFrame": status.button.map { NSStringFromRect($0.window?.frame ?? .zero) } ?? "", "preferencesVisible": preferencesPanel?.window?.isVisible ?? false, "pageIdle": pageIdle]
+        let statusData: [String: Any] = ["version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development", "pid": ProcessInfo.processInfo.processIdentifier, "pausedBy": pausedBy, "readings": history.count, "events": dataset?.events.count ?? 0, "message": message, "analytics": analyticsMessage, "loading": webView?.isLoading ?? false, "dashboardResident": webView != nil, "signedOut": isSignedOut, "loginPaused": loginPaused, "statusVisible": status.isVisible, "statusWindowVisible": status.button?.window?.isVisible ?? false, "placementRecoveries": placementRecoveries, "statusSafeArea": status.button?.window?.screen?.auxiliaryTopRightArea.map { NSStringFromRect($0) } ?? "", "statusFrame": status.button.map { NSStringFromRect($0.window?.frame ?? .zero) } ?? "", "preferencesVisible": preferencesPanel?.window?.isVisible ?? false, "pageIdle": pageIdle]
         if let data = try? JSONSerialization.data(withJSONObject: statusData, options: [.sortedKeys]), data != lastDiagnostic {
             lastDiagnostic = data; try? data.write(to: storage.deletingLastPathComponent().appendingPathComponent("status.json"), options: .atomic)
         }
@@ -456,7 +483,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         }
         browserSignIn?.cancel(); browserSignIn = nil; browserSessions.delete(); awaitingBrowserSession = false; updateBrowserButton()
         isSignedOut = true; signingOut = true; refreshGeneration += 1
-        exporter.cancelAll(); exportInFlight = false; historySettled = true; closePopovers(); window.orderOut(nil); releaseBrowser()
+        exporter.cancelAll(); includedReader.cancel(); exportInFlight = false; historySettled = true; closePopovers(); window.orderOut(nil); releaseBrowser()
         history.removeAll(); dataset = nil; lastRead = .distantPast; notifications.resetAccount(); knownModels = nil; modelPaces = [:]; lastModelEvaluation = nil
         message = L("Conta desconectada", "Account disconnected"); analyticsMessage = L("Conecte sua conta para acompanhar o consumo.", "Connect your account to track usage.")
         render(forceCard: true)
@@ -518,7 +545,10 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private func evaluateModelAlerts(force: Bool = false) {
         guard !isSignedOut, let dataset, force || lastModelEvaluation != dataset.fetchedAt else { return }
         lastModelEvaluation = dataset.fetchedAt
-        let result = ModelAlerts.evaluate(dataset: dataset, preferences: preferences, known: knownModels, cycleStart: cycleStart, now: Date(), delivered: notifications.announcedIDs, saved: modelPaces)
+        // A personal plan reports no dollar cost per request: only a model's first use is worth a notice.
+        var modelPreferences = preferences
+        if history.last?.isIncludedPercent == true { modelPreferences.notifyModelRate = false; modelPreferences.monitoredModels = [] }
+        let result = ModelAlerts.evaluate(dataset: dataset, preferences: modelPreferences, known: knownModels, cycleStart: cycleStart, now: Date(), delivered: notifications.announcedIDs, saved: modelPaces)
         if result.baselines != modelPaces {
             modelPaces = result.baselines
             let file = AppFolder.url.appendingPathComponent("model-paces.json")
@@ -663,7 +693,8 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             preferencesPanel = panel
         }
         if preferencesPanel?.resumeIfSuspended() != true {
-            preferencesPanel?.present(preferences, providerLimitMicros: history.last.map { Int64($0.limitCents) * 10_000 })
+            preferencesPanel?.present(preferences, providerLimitMicros: history.last.flatMap { $0.isIncludedPercent ? nil : Int64($0.limitCents) * 10_000 },
+                                     personalPlan: history.last?.isIncludedPercent == true ? .some(history.last?.plan) : nil)
         }
         notifications.readPermission()
     }
@@ -671,7 +702,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard !pageIdle, webView === self.webView else { return }
         if awaitingBrowserSession, webView.url?.scheme == "https", DashboardLocation.destination(for: webView.url) == .signIn { browserSessionRejected() }
-        if !window.isVisible && DashboardLocation.destination(for: webView.url) == .signIn { pauseLogin(); return }
+        if !window.isVisible && DashboardLocation.destination(for: webView.url) == .signIn { pausedBy = webView.url.map { "\($0.host ?? "")\($0.path)" } ?? ""; pauseLogin(); return }
         connectionFailed = false; sourceLoadedAt = Date(); readUsage()
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { guard !pageIdle, webView === self.webView else { return }; connectionFailed = true; lastRead = .distantPast; message = QuotaMessages.unavailable("Cursor"); render() }
@@ -685,6 +716,8 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         if UsageExporter.isExport(url) { _ = exporter.capture(navigationAction.request); decisionHandler(.cancel); return }
         if !window.isVisible, navigationAction.targetFrame?.isMainFrame != false,
            DashboardLocation.destination(for: url) == .signIn {
+            // Kept in status.json: which page sent a hidden session to sign-in, without its query.
+            pausedBy = url.map { "\($0.host ?? "")\($0.path)" } ?? ""
             decisionHandler(.cancel); pauseLogin(); return
         }
         decisionHandler(url?.scheme == "https" ? .allow : .cancel)

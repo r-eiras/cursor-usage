@@ -87,16 +87,23 @@ struct QuotaAlertDraft {
         sound.state = value.sound ? .on : .off; renewal.state = value.renewal ? .on : .off
         refreshAppearance()
     }
+    // A personal account has no dollar quota or daily allowance: the goal and the daily alert are kept but not offered.
+    var personalAccount = false {
+        didSet {
+            personal.state = personalAccount ? .off : (initial.personalEnabled ? .on : .off)
+            daily.state = personalAccount ? .off : (initial.dailyEnabled ? .on : .off); refreshAppearance()
+        }
+    }
     func draft() -> QuotaAlertDraft? {
         var value = initial
-        value.personalEnabled = personal.state == .on
-        if value.personalEnabled {
+        value.personalEnabled = personalAccount ? initial.personalEnabled : personal.state == .on
+        if value.personalEnabled && !personalAccount {
             guard let amount = number(limit.stringValue), amount > 0, amount < 1_000_000_000 else { return nil }
             value.personalLimit = amount
         }
-        guard daily.state != .on || dailyInputValid else { return nil }
+        guard personalAccount || daily.state != .on || dailyInputValid else { return nil }
         value.cycleEnabled = cycle.state == .on; value.cyclePercent = cycleThreshold.integerValue
-        value.dailyEnabled = daily.state == .on; value.dailyPercent = dailyThreshold.doubleValue
+        value.dailyEnabled = personalAccount ? initial.dailyEnabled : daily.state == .on; value.dailyPercent = dailyThreshold.doubleValue
         value.sound = sound.state == .on; value.renewal = renewal.state == .on
         return value
     }
@@ -117,8 +124,9 @@ struct QuotaAlertDraft {
         MenuBarPresentation.money(value * 1_000_000)
     }
     private func refreshAppearance() {
-        limit.isEnabled = personal.state == .on; cycleThreshold.isEnabled = cycle.state == .on
-        dailyThreshold.isEnabled = daily.state == .on; dailyAmount.isEnabled = daily.state == .on && (allowance ?? 0) > 0
+        personal.isEnabled = !personalAccount; daily.isEnabled = !personalAccount
+        limit.isEnabled = !personalAccount && personal.state == .on; cycleThreshold.isEnabled = cycle.state == .on
+        dailyThreshold.isEnabled = !personalAccount && daily.state == .on; dailyAmount.isEnabled = !personalAccount && daily.state == .on && (allowance ?? 0) > 0
         sound.isEnabled = cycle.state == .on || daily.state == .on || renewal.state == .on
         dailyAmount.textColor = dailyInputValid ? .labelColor : .systemRed
         limit.textColor = personal.state == .on && (number(limit.stringValue) ?? 0) <= 0 ? .systemRed : .labelColor

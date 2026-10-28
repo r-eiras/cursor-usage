@@ -82,6 +82,21 @@ var todayOnly = AppPreferences(); todayOnly.menuBarDensity = .compactToday
 let todayBar = MenuBarPresentation.make(preferences: todayOnly, quota: quota, dataset: data, now: now, calendar: calendar)
 check(todayBar.parts.count == 1 && todayBar.parts[0].usage == todayBar.usedTodayFraction && !todayBar.title.contains("25%"), "Compact today shows only today's reading")
 check(!AppPreferences().colorNumbers && MenuBarDensity.compactToday.showsText && !MenuBarDensity.iconsOnly.showsText, "Number colors start off; compact today is a text layout")
+let personal = UsageSnapshot(spentCents: 3700, limitCents: 10_000, resetDate: date("2026-10-26T00:00:00Z"), observedAt: now, kind: .includedPercent, plan: "Free")
+var personalPreferences = AppPreferences(); personalPreferences.menuMode = .both; personalPreferences.menuBarDensity = .detailed; personalPreferences.personalBudgetEnabled = true; personalPreferences.personalBudgetMicros = 5_000_000
+let personalBar = MenuBarPresentation.make(preferences: personalPreferences, quota: personal, dataset: data, now: now, calendar: calendar)
+check(personalBar.title == "37% Cota" && !personalBar.title.contains("US$") && !personalBar.title.contains("Hoje"), "A personal plan shows only its share, even when dollars and today are chosen")
+check(personalBar.usedTodayFraction == nil && personalBar.iconUsage(.day) == personalBar.usedFraction && personalBar.tooltip.contains("Plano pessoal"), "Without daily figures the icon follows the included usage, and the plan is named")
+personalPreferences.cursorUsageBasis = .remaining
+check(MenuBarPresentation.make(preferences: personalPreferences, quota: personal, dataset: data, now: now, calendar: calendar).title.hasPrefix("63%"), "Remaining shows what is left of the included usage")
+let personalBudget = BudgetEngine.assess(quota: personal, dataset: data, preferences: personalPreferences, now: now, calendar: calendar)!
+check(personalBudget.isIncludedPercent && personalBudget.dailyLimitMicros == nil && personalBudget.targetMicros == 100_000_000 && abs(personalBudget.fraction - 0.37) < 0.0001, "A personal assessment ignores the dollar goal and has no daily allowance")
+check(personalBudget.cycle.duration == 7 * 86400, "A reset a few days away is read as a weekly pool")
+var personalAlert = AppPreferences(); personalAlert.notifyCycle = true; personalAlert.alertPercent = 30
+let personalNotice = BudgetAlerts.candidates(assessment: personalBudget, preferences: personalAlert, delivered: [])
+check(personalNotice.count == 1 && personalNotice[0].body.contains("37%") && !personalNotice[0].body.contains("US$"), "The cycle alert of a personal plan speaks in percent")
+check(RenewalDetector.event(previousReset: date("2026-10-21T00:00:00Z"), currentReset: date("2026-10-28T00:00:00Z"), observedAt: date("2026-10-21T12:00:00Z"), minimumDaysAhead: 3) != nil
+      && RenewalDetector.event(previousReset: date("2026-10-21T00:00:00Z"), currentReset: date("2026-10-28T00:00:00Z"), observedAt: date("2026-10-21T12:00:00Z")) == nil, "A weekly renewal counts only with the shorter minimum")
 remaining.menuMode = .amount
 check(MenuBarPresentation.make(preferences: remaining, quota: quota, dataset: data, now: now, calendar: calendar).title.contains("750,00"), "Remaining money follows the same cycle")
 var compact = remaining; compact.menuBarDensity = .iconsOnly

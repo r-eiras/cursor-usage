@@ -120,6 +120,8 @@ struct BudgetAssessment {
     let cycleKey: String
     let dayKey: String
     let dailyDataFresh: Bool
+    // A personal plan's reading: shares of its included usage, with no dollars and no daily figures.
+    var isIncludedPercent = false
     var fraction: Double { Double(spentMicros) / Double(targetMicros) }
     var overDailyLimit: Bool { guard let todaySpentMicros, let dailyLimitMicros else { return false }; return Double(todaySpentMicros) > dailyLimitMicros }
 }
@@ -127,8 +129,20 @@ struct BudgetAssessment {
 enum BudgetEngine {
     static func assess(quota: UsageSnapshot, dataset: UsageDataset?, preferences: AppPreferences, now: Date, calendar: Calendar = .current) -> BudgetAssessment? {
         var utc = Calendar(identifier: .gregorian); utc.timeZone = TimeZone(secondsFromGMT: 0)!
-        guard let reset = calendar.date(from: utc.dateComponents([.year, .month, .day], from: quota.resetDate)),
-              let start = calendar.date(byAdding: .month, value: -1, to: reset), start <= now, reset > now else { return nil }
+        guard let reset = calendar.date(from: utc.dateComponents([.year, .month, .day], from: quota.resetDate)) else { return nil }
+        if quota.isIncludedPercent {
+            // Only the share used is known: no personal goal in dollars, no daily allowance, no spending rate.
+            let start = reset.timeIntervalSince(now) <= 8 * 86400 ? reset.addingTimeInterval(-7 * 86400) : (calendar.date(byAdding: .month, value: -1, to: reset) ?? reset)
+            guard start <= now, reset > now else { return nil }
+            let target = Int64(quota.limitCents) * 10_000, spent = Int64(quota.spentCents) * 10_000
+            let days = max(1, calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: reset).day ?? 1)
+            let formatter = DateFormatter(); formatter.calendar = calendar; formatter.timeZone = calendar.timeZone; formatter.dateFormat = "yyyy-MM-dd"
+            return BudgetAssessment(targetMicros: target, spentMicros: spent, remainingMicros: max(0, target - spent), cycle: DateInterval(start: start, end: reset), remainingDays: days,
+                plannedDailyMicros: 0, recommendedDailyMicros: 0, dailyLimitMicros: nil, todaySpentMicros: nil, remainingTodayMicros: nil, recentDailyMicros: nil,
+                requiredSavingMicros: 0, projectedCycleMicros: nil, cycleKey: String(Int(quota.resetDate.timeIntervalSince1970)), dayKey: formatter.string(from: now),
+                dailyDataFresh: false, isIncludedPercent: true)
+        }
+        guard let start = calendar.date(byAdding: .month, value: -1, to: reset), start <= now, reset > now else { return nil }
         let target = preferences.personalBudgetEnabled ? preferences.personalBudgetMicros : Int64(quota.limitCents) * 10_000
         guard target > 0 else { return nil }
         let spent = Int64(quota.spentCents) * 10_000
@@ -161,13 +175,16 @@ struct MenuBarPresentation {
     struct Part: Equatable { let text: String; let usage: Double? }
     var parts: [Part] = []
     // The fraction the icon color follows, or nil when coloring is off or the day's figures are not fresh.
-    func iconUsage(_ basis: IconColorBasis) -> Double? { basis == .cycle ? usedFraction : basis == .day ? usedTodayFraction : nil }
+    // A personal plan has no daily figure, so a day basis follows its included usage instead.
+    var isIncludedPercent = false
+    func iconUsage(_ basis: IconColorBasis) -> Double? { basis == .cycle || (basis == .day && isIncludedPercent) ? usedFraction : basis == .day ? usedTodayFraction : nil }
     static func money(_ micros: Double) -> String {
         let formatter = NumberFormatter(); formatter.locale = AppLanguage.locale; formatter.numberStyle = .currency; formatter.currencyCode = "USD"
         return formatter.string(from: NSNumber(value: micros / 1_000_000)) ?? "—"
     }
     static func make(preferences: AppPreferences, quota: UsageSnapshot?, dataset: UsageDataset?, now: Date, calendar: Calendar = .current, assessment: BudgetAssessment? = nil) -> MenuBarPresentation {
         let budget = assessment ?? quota.flatMap { BudgetEngine.assess(quota: $0, dataset: dataset, preferences: preferences, now: now, calendar: calendar) }
+        if let quota, quota.isIncludedPercent { return included(quota, preferences: preferences) }
         let cost = quota.map { Int64($0.spentCents) * 10_000 }
         let denominator = budget.map { Double($0.targetMicros) } ?? quota.map { Double($0.limitCents) * 10_000 }
         let displayedCost = cost.flatMap { cost -> Double? in
@@ -215,6 +232,22 @@ struct BudgetAlert {
     let title: String
     let body: String
 }
+extension MenuBarPresentation {
+    // A personal plan shows only the share of its included usage: no dollars and no daily number, whatever the layout.
+    static func included(_ quota: UsageSnapshot, preferences: AppPreferences) -> MenuBarPresentation {
+        let used = Double(quota.spentCents) / Double(quota.limitCents)
+        let shown = preferences.cursorUsageBasis == .used ? used : max(0, 1 - used)
+        let percent = localizedDecimal(String(format: shown * 100 < 1 && shown > 0 ? "%.1f%%" : "%.0f%%", shown * 100))
+        let label = preferences.menuBarDensity == .detailed && preferences.showDetailedLabels ? percent + L(" Cota", " Quota") : percent
+        let parts = preferences.menuBarDensity == .iconsOnly ? [] : [Part(text: label, usage: used)]
+        let formatter = DateFormatter(); formatter.locale = AppLanguage.locale; formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "d MMM"
+        let plan = L("Plano pessoal", "Personal plan")
+        return MenuBarPresentation(title: parts.map(\.text).joined(),
+            tooltip: "\(plan)\n\(L("Cota incluída", "Included usage")): \(percent) \(preferences.cursorUsageBasis == .used ? L("usada", "used") : L("disponível", "left"))\n\(L("Renova em", "Renews on")) \(formatter.string(from: quota.resetDate))",
+            fraction: shown, usedFraction: used, usedTodayFraction: nil, parts: parts, isIncludedPercent: true)
+    }
+}
+
 enum BudgetAlerts {
     static func candidates(assessment: BudgetAssessment, preferences: AppPreferences, delivered: Set<String>) -> [BudgetAlert] {
         var result: [BudgetAlert] = []
@@ -222,7 +255,9 @@ enum BudgetAlerts {
         if preferences.notifyCycle && assessment.fraction * 100 >= Double(preferences.alertPercent) {
             let id = "cycle:\(limitKey):\(preferences.alertPercent)"
             if !delivered.contains(id) {
-                result.append(BudgetAlert(id: id, kind: .cycle, title: QuotaMessages.alertTitle("Cursor"), body: QuotaMessages.cycleAlertBody(used: MenuBarPresentation.money(Double(assessment.spentMicros)), goal: MenuBarPresentation.money(Double(assessment.targetMicros)))))
+                result.append(BudgetAlert(id: id, kind: .cycle, title: QuotaMessages.alertTitle("Cursor"), body: assessment.isIncludedPercent
+                    ? L("\(Int((assessment.fraction * 100).rounded()))% da cota incluída usada. Ela renova em \(assessment.remainingDays) dia(s).", "\(Int((assessment.fraction * 100).rounded()))% of the included usage used. It renews in \(assessment.remainingDays) day(s).")
+                    : QuotaMessages.cycleAlertBody(used: MenuBarPresentation.money(Double(assessment.spentMicros)), goal: MenuBarPresentation.money(Double(assessment.targetMicros)))))
             }
         }
         if preferences.notifyDaily, assessment.dailyDataFresh, let spent = assessment.todaySpentMicros, let allowance = assessment.dailyLimitMicros,

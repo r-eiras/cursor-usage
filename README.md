@@ -4,7 +4,7 @@ See how much of your Cursor plan you have used, right in the Mac menu bar.
 
 [Português (Brasil)](README.pt-BR.md) · [What's new](https://github.com/r-eiras/cursor-usage/releases/latest) · [Report a problem](https://github.com/r-eiras/cursor-usage/issues/new)
 
-**Version 3.4.9 · Apple Silicon Mac (M1 or later) · macOS 14 Sonoma or later · free and open source**
+**Version 3.5.0 · Apple Silicon Mac (M1 or later) · macOS 14 Sonoma or later · free and open source**
 
 This is an independent project. It is not made or endorsed by Cursor (Anysphere).
 
@@ -15,6 +15,25 @@ This is an independent project. It is not made or endorsed by Cursor (Anysphere)
 - Changes color as you use more: normal, then yellow, orange and red.
 - Warns you when you pass a goal, when your plan renews, and when a model spends much more than usual.
 - Updates itself.
+
+## Corporate or personal account
+
+The app finds out which kind of Cursor account you connected and shows what that account offers.
+
+| | Corporate (team plan) | Personal (Free, Plus, Premium…) |
+| --- | --- | --- |
+| What Cursor shows | Your spending in dollars, out of the plan's limit | Only the share of your included usage, as a percentage |
+| Menu bar | %, dollars or both; today and the cycle | Only the % of the included usage |
+| Today's allowance | Yes | No |
+| Personal spending goal | Yes | No |
+| Usage alerts | By cycle and by day | By the included usage only |
+| Renewal alert | Yes | Yes |
+| Models in the card | Yes | Yes, when Cursor's export has data |
+| Extra money (on-demand) | Part of the dollar spending | Shown in the Goal tab, with its limit, when the plan has it on |
+| Model pace and dollar limits | Yes | No |
+| New model alert | Yes | Yes |
+
+Options a personal account can't use are greyed out in Settings, with a note under the tabs. The app never invents a number Cursor doesn't show.
 
 ## Install
 

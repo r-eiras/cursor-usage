@@ -197,7 +197,7 @@ enum AnalyticsEngine {
         }
         let cost = rows.reduce(Int64(0)) { $0 + $1.costMicros }
         var projection: UsageProjection?
-        if let quota {
+        if let quota, !quota.isIncludedPercent {
             let exposureDays = max(1.0 / 24, min(now, interval.end).timeIntervalSince(interval.start) / 86400)
             let rate = Double(cost) / exposureDays
             var utc = Calendar(identifier: .gregorian); utc.timeZone = TimeZone(secondsFromGMT: 0)!

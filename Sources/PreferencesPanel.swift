@@ -65,6 +65,9 @@ import AppKit
         disconnect.toolTip = L("Desconectar conta neste app", "Disconnect this app's account"); disconnect.setAccessibilityLabel(L("Desconectar conta", "Disconnect account")); disconnect.identifier = NSUserInterfaceItemIdentifier("disconnectAccount"); content.addSubview(disconnect)
         tabs.frame = NSRect(x: 22, y: 88, width: 476, height: 28); tabs.selectedSegment = 0; tabs.segmentStyle = .rounded; tabs.font = .systemFont(ofSize: 12, weight: .medium)
         tabs.target = self; tabs.action = #selector(selectTab); content.addSubview(tabs)
+        personalNote.frame = NSRect(x: 22, y: 119, width: 476, height: 16); personalNote.font = .systemFont(ofSize: 11); personalNote.textColor = .secondaryLabelColor; personalNote.lineBreakMode = .byTruncatingTail
+        personalNote.isHidden = true; content.addSubview(personalNote)
+        for popup in [density, iconColor] { popup.autoenablesItems = false }
         let bar = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 520))
         let alertsSection = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 482)); self.alertsSection = alertsSection
         let app = SettingsSurface(frame: NSRect(x: 18, y: 140, width: 484, height: 380))
@@ -134,7 +137,12 @@ import AppKit
     // Opens the alerts tab with a model already on the monitored list, ready for its limits.
     func monitor(_ model: String) { tabs.selectedSegment = 1; selectTab(); models.updateSpend(onModelChoices?() ?? []); models.setPaces(onModelPaces?() ?? [:]); models.monitor(model) }
     static func fittedHeight(screen: NSScreen? = NSScreen.main) -> CGFloat { min(640, ((screen?.visibleFrame.height ?? 800) * 0.8).rounded(.down)) }
-    func present(_ value: AppPreferences, providerLimitMicros: Int64? = nil) {
+    // Shown under the tabs for a personal plan, whose options that need dollars or daily figures are greyed out.
+    private let personalNote = NSTextField(labelWithString: "")
+    private var personalPlan: String?? = nil
+    var isPersonalAccount: Bool { personalPlan != nil }
+    func present(_ value: AppPreferences, providerLimitMicros: Int64? = nil, personalPlan: String?? = nil) {
+        self.personalPlan = personalPlan
         suspendedForMenuBar = false
         original = value
         disconnect.isEnabled = canDisconnect?() ?? false
@@ -146,22 +154,35 @@ import AppKit
         alert.cycleEnabled = value.notifyCycle; alert.cyclePercent = value.alertPercent; alert.dailyEnabled = value.notifyDaily
         alert.dailyPercent = value.dailyAlertPercent; alert.sound = value.alertSound; alert.renewal = value.notifyRenewal
         alerts.present(alert, officialLimit: providerLimitMicros.map { Double($0) / 1_000_000 })
+        alerts.personalAccount = isPersonalAccount
+        if isPersonalAccount {
+            density.selectItem(at: MenuBarDensity.allCases.firstIndex(of: Self.personalFallback(value.menuBarDensity))!)
+            if value.iconColorBasis == .day { iconColor.selectItem(at: IconColorBasis.allCases.firstIndex(of: .cycle)!) }
+        }
+        personalNote.isHidden = !isPersonalAccount
+        // One short line fits between the tabs and the sections; the tooltip says the rest.
+        personalNote.stringValue = L("Plano pessoal: opções em cinza são de contas corporativas.", "Personal plan: greyed-out options are for corporate accounts.")
+        personalNote.toolTip = L("Contas pessoais mostram só a porcentagem da cota incluída, sem valores em dólar nem cota diária.",
+                                 "Personal accounts show only the share of the included usage, with no dollar amounts and no daily allowance.")
         models.present(ModelAlertControls.Draft(notifyNewModel: value.notifyNewModel, notifyRate: value.notifyModelRate, ratePercent: value.modelRatePercent, monitored: value.monitoredModels,
                                                rateUnit: value.modelRateUnit, rateAmountMicros: value.modelRateAmountMicros, rateReference: value.modelRateReference), choices: onModelChoices?() ?? [])
-        models.setPaces(onModelPaces?() ?? [:])
+        models.setPaces(onModelPaces?() ?? [:]); models.personalAccount = isPersonalAccount
         refreshStartup(); changed(); window?.setContentSize(NSSize(width: 520, height: Self.fittedHeight()))
-        selectTab(); window?.center(); showWindow(nil); NSApp.activate(ignoringOtherApps: true)
+        selectTab(); if window?.isVisible != true { window?.center() }; showWindow(nil); setDocked(true); NSApp.activate(ignoringOtherApps: true)
     }
+    // While Settings is open the app is a regular one, in the Dock and in Cmd+Tab, so switching apps never loses the
+    // window; closing it returns the app to the menu bar only.
+    private func setDocked(_ docked: Bool) { if NSApp.activationPolicy() != (docked ? .regular : .accessory) { NSApp.setActivationPolicy(docked ? .regular : .accessory) } }
     func suspendForMenuBar() {
         guard window?.isVisible == true else { return }
         suspendedForMenuBar = true; window?.orderOut(nil)
     }
     func resumeIfSuspended() -> Bool {
         guard suspendedForMenuBar else { return false }
-        suspendedForMenuBar = false; showWindow(nil); NSApp.activate(ignoringOtherApps: true)
+        suspendedForMenuBar = false; showWindow(nil); setDocked(true); NSApp.activate(ignoringOtherApps: true)
         return true
     }
-    func windowWillClose(_ notification: Notification) { suspendedForMenuBar = false }
+    func windowWillClose(_ notification: Notification) { suspendedForMenuBar = false; setDocked(false) }
     private func menuDraft() -> AppPreferences {
         var value = original
         value.menuMode = MenuDisplayMode.allCases[mode.indexOfSelectedItem]
@@ -171,8 +192,14 @@ import AppKit
         value.menuBarDensity = MenuBarDensity.allCases[density.indexOfSelectedItem]
         value.syncInterval = SyncInterval.allCases[sync.indexOfSelectedItem]; value.language = AppLanguage.allCases[language.indexOfSelectedItem]
         value.showIcon = showIcon.state == .on; value.showDetailedLabels = showDetailedLabels.state == .on; value.colorNumbers = colorNumbers.state == .on
+        // A personal account shows the closest choice it can use; the corporate one saved before is kept underneath.
+        if isPersonalAccount {
+            if Self.personalFallback(original.menuBarDensity) == value.menuBarDensity { value.menuBarDensity = original.menuBarDensity }
+            if original.iconColorBasis == .day && value.iconColorBasis == .cycle { value.iconColorBasis = .day }
+        }
         return value
     }
+    static func personalFallback(_ density: MenuBarDensity) -> MenuBarDensity { density == .detailed || density == .compactToday ? .compact : density }
     private func draft() -> AppPreferences? {
         guard let alert = alerts.draft(), let modelAlerts = models.draft() else { return nil }
         var value = menuDraft()
@@ -201,6 +228,11 @@ import AppKit
         showIcon.isEnabled = showsText; showDetailedLabels.isEnabled = layout == .detailed; colorNumbers.isEnabled = showsText
         for control in [mode, basis] { control.isEnabled = showsText }
         let value = draft() ?? menuDraft()
+        // A personal account has no dollars and no daily figures: those choices stay visible but cannot be picked.
+        let personal = isPersonalAccount
+        if personal { mode.isEnabled = false }
+        for index in [MenuBarDensity.allCases.firstIndex(of: .detailed)!, MenuBarDensity.allCases.firstIndex(of: .compactToday)!] { density.item(at: index)?.isEnabled = !personal }
+        iconColor.item(at: IconColorBasis.allCases.firstIndex(of: .day)!)?.isEnabled = !personal
         iconStyle.isEnabled = value.showIcon || value.menuBarDensity == .iconsOnly; iconColor.isEnabled = iconStyle.isEnabled
         let colored = (iconColor.isEnabled && value.iconColorBasis != .off) || (colorNumbers.isEnabled && value.colorNumbers)
         for sample in iconLegend { sample.image.image = CursorMark.icon(style: value.menuIconStyle, usage: sample.usage); sample.image.alphaValue = colored ? 1 : 0.35; sample.label.alphaValue = colored ? 1 : 0.5 }
@@ -209,7 +241,8 @@ import AppKit
         case .cycle: L("Consumido no ciclo, sobre a cota do Cursor ou sua meta pessoal. Muda devagar ao longo do mês.", "Used this cycle, against Cursor's allowance or your personal goal. Changes slowly over the month.")
         case .day: L("Gasto de hoje, sobre a cota do dia: o que sobrava no ciclo dividido pelos dias até a renovação. Zera à meia-noite.", "Spent today, against today's allowance: what was left in the cycle divided by the days to renewal. Resets at midnight.")
         }
-        let numbers = colorNumbers.isEnabled && value.colorNumbers ? L(" Números: hoje pela cota do dia, ciclo pela do ciclo.", " Numbers: today by the daily allowance, cycle by the cycle's.") : ""
+        let numbers = !(colorNumbers.isEnabled && value.colorNumbers) ? "" : personal ? L(" Números: pela cota incluída.", " Numbers: by the included usage.")
+            : L(" Números: hoje pela cota do dia, ciclo pela do ciclo.", " Numbers: today by the daily allowance, cycle by the cycle's.")
         iconColorNote.stringValue = (iconColor.isEnabled ? note : L("Ícone oculto.", "Icon hidden.")) + numbers
         CursorMark.configure(preview, title: onPreview?(value) ?? "—", showsIcon: value.showIcon || value.menuBarDensity == .iconsOnly, style: value.menuIconStyle, usage: onPreviewUsage?(value) ?? nil,
                             parts: value.colorNumbers ? onPreviewParts?(value) : nil)
@@ -227,9 +260,9 @@ import AppKit
     private func refreshStartup() { let state = startupState?() ?? .unavailable; startup.state = state == .requiresApproval ? .mixed : (state == .enabled ? .on : .off); startupDescription.stringValue = state.message }
     @objc private func startupChanged() { do { try onStartupChange?(startup.state != .off); refreshStartup() } catch { refreshStartup(); startupDescription.stringValue = LoginItemManager.failureMessage(error, state: startupState?() ?? .unavailable) } }
     @objc private func openStartupSettings() { onStartupSettings?() }
-    @objc private func save() { guard let value = draft() else { tabs.selectedSegment = 1; selectTab(); setStatus(L("Informe uma meta válida, um aviso diário de 1% a 100%, um ritmo de modelo de 1% a 10.000% ou acima de US$ 0,01, e limites de modelo maiores que zero.", "Enter a valid goal, a daily alert from 1% to 100%, a model pace from 1% to 10,000% or above US$ 0.01, and model limits above zero.")); return }; guard onSave?(value) == true else { return }; suspendedForMenuBar = false; window?.orderOut(nil) }
+    @objc private func save() { guard let value = draft() else { tabs.selectedSegment = 1; selectTab(); setStatus(L("Informe uma meta válida, um aviso diário de 1% a 100%, um ritmo de modelo de 1% a 10.000% ou acima de US$ 0,01, e limites de modelo maiores que zero.", "Enter a valid goal, a daily alert from 1% to 100%, a model pace from 1% to 10,000% or above US$ 0.01, and model limits above zero.")); return }; guard onSave?(value) == true else { return }; suspendedForMenuBar = false; window?.orderOut(nil); setDocked(false) }
     @objc private func openNotificationSettings() { NSWorkspace.shared.open(NotificationAdvice.settingsURL) }
-    @objc private func cancel() { suspendedForMenuBar = false; window?.orderOut(nil) }
+    @objc private func cancel() { suspendedForMenuBar = false; window?.orderOut(nil); setDocked(false) }
 }
 @MainActor private final class SettingsContent: NSView { override var isFlipped: Bool { true } }
 @MainActor private final class SettingsSurface: NSView {

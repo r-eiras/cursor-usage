@@ -88,7 +88,8 @@ final class UsageExporter: NSObject, WKDownloadDelegate {
     static let triggerScript = #"""
     (() => {
       const button = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Export CSV' && !item.disabled);
-      if (!button) return false;
+      // An account with no usage in the range has nothing to export; say so instead of waiting for a button.
+      if (!button) return /No\s+usage\s+events\s+found|No\s+Events\s+Found/i.test(document.body.innerText || '') ? 'empty' : false;
       button.click();
       return true;
     })()

@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     test('ReleaseVersions',['ReleaseUpdates.swift'])
     test('parsing',['Usage.swift'])
     test('Analytics',['Usage.swift','Analytics.swift'])
-    test('Preferences',['Usage.swift','Analytics.swift','Preferences.swift'])
+    test('Preferences',['Usage.swift','Analytics.swift','Preferences.swift','RenewalAlerts.swift'])
     test('AccountSession',['AccountSessionStorage.swift'])
     test('LoginItem',['LoginItemManager.swift'],['ServiceManagement'])
     test('Pace',['QuotaPace.swift'])
@@ -77,7 +77,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
             run('sips','-z',str(points*scale),str(points*scale),str(root/'Assets/AppIcon.png'),'--out',str(iconset/name))
     run('iconutil','-c','icns',str(iconset),'-o',str(resources/'AppIcon.icns'))
     with (app/'Contents/Info.plist').open('wb') as output:
-        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleIconFile':'AppIcon','CFBundleShortVersionString':'3.4.9','CFBundleVersion':'25','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
+        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleIconFile':'AppIcon','CFBundleShortVersionString':'3.5.0','CFBundleVersion':'26','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
     run('codesign','--force','--sign','-',str(app))
     # Replace the bundle atomically; never overwrite a running signed executable.
     destination = root/'Cursor Usage.app'

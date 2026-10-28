@@ -242,5 +242,39 @@ MainActor.assumeIsolated {
         check(saved?.monitoredModels == [MonitoredModel(model: "claude-opus")], "Saving keeps the monitored model")
         panel.window?.orderOut(nil)
     }
+    for language in [AppLanguage.portuguese, .english] {
+        AppLanguage.current = language
+        func tree(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(tree) }
+        let panel = PreferencesPanel(); panel.startupState = { .disabled }
+        var value = AppPreferences(); value.notifyDaily = true; value.personalBudgetEnabled = true; value.personalBudgetMicros = 50_000_000
+        value.menuBarDensity = .detailed; value.iconColorBasis = .day; value.colorNumbers = true
+        panel.present(value, personalPlan: .some("Free"))
+        let views = tree(panel.window!.contentView!)
+        let note = views.compactMap { $0 as? NSTextField }.first { $0.stringValue.hasPrefix(L("Plano pessoal", "Personal plan")) }
+        check(panel.isPersonalAccount && note?.isHidden == false, "A personal account is named under the tabs")
+        check(note!.attributedStringValue.size().width <= note!.frame.width, "The note fits on one line")
+        let popups = views.compactMap { $0 as? NSPopUpButton }
+        check(!popups[0].isEnabled, "A personal account cannot pick dollars")
+        check(popups[2].item(at: 0)?.isEnabled == false && popups[2].item(at: 2)?.isEnabled == false && popups[2].item(at: 1)?.isEnabled == true, "Layouts with today are greyed out; the cycle layout stays")
+        check(popups[5].item(at: 2)?.isEnabled == false, "Coloring by today is greyed out")
+        check(popups[2].titleOfSelectedItem == L("Compacta (ciclo)", "Compact (cycle)") && popups[5].titleOfSelectedItem == L("Ícone pelo uso do ciclo", "Icon by cycle usage"), "A choice it cannot use shows the closest one it can")
+        let boxes = views.compactMap { $0 as? NSButton }
+        let goal = boxes.first { $0.title == L("Definir um limite pessoal de gastos", "Set a personal spending limit") }
+        let numbers = boxes.first { $0.title == L("Números também, cada um pelo seu período", "Numbers too, each by its own period") }!
+        check(goal?.isEnabled == false && goal?.state == .off, "The dollar goal is not offered and shows off")
+        check(numbers.isEnabled && numbers.state == .on, "Number colors work on the included usage too")
+        let daily = boxes.first { $0.title.hasPrefix(L("Notificar ao atingir", "Notify at this")) }
+        check(daily?.state == .off && daily?.isEnabled == false, "The daily alert shows off")
+        let monitor = boxes.first { $0.title == L("Monitorar modelo…", "Monitor a model…") }!
+        check(!monitor.isEnabled, "Dollar limits per model are not offered")
+        var saved: AppPreferences?; panel.onSave = { saved = $0; return true }
+        boxes.first { $0.title == L("Salvar", "Save") }!.performClick(nil)
+        check(saved?.notifyDaily == true && saved?.personalBudgetEnabled == true && saved?.personalBudgetMicros == 50_000_000 && saved?.menuBarDensity == .detailed && saved?.iconColorBasis == .day && saved?.colorNumbers == true, "Saving keeps the corporate choices for a later corporate account")
+        panel.present(AppPreferences())
+        check(!panel.isPersonalAccount && note?.isHidden == true && popups[0].isEnabled && goal?.isEnabled == true, "A corporate account gets every option back")
+        check(NSApp.activationPolicy() == .regular, "While Settings is open the app is in the Dock and in Cmd+Tab")
+        boxes.first { $0.title == L("Cancelar", "Cancel") }!.performClick(nil)
+        check(NSApp.activationPolicy() == .accessory && panel.window?.isVisible == false, "Closing Settings returns the app to the menu bar only")
+    }
     print("PASS: Cursor controls, numeric validation, pt-BR/en, fixed preferences footer and per-model alert settings")
 }

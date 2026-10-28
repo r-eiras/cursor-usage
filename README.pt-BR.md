@@ -4,7 +4,7 @@ Veja quanto do seu plano do Cursor você já usou, direto na barra de menus do M
 
 [English](README.md) · [Novidades](https://github.com/r-eiras/cursor-usage/releases/latest) · [Relatar um problema](https://github.com/r-eiras/cursor-usage/issues/new)
 
-**Versão 3.4.9 · Mac com Apple Silicon (M1 ou mais novo) · macOS 14 Sonoma ou mais novo · gratuito e de código aberto**
+**Versão 3.5.0 · Mac com Apple Silicon (M1 ou mais novo) · macOS 14 Sonoma ou mais novo · gratuito e de código aberto**
 
 Este é um projeto independente. Não é feito nem endossado pelo Cursor (Anysphere).
 
@@ -15,6 +15,25 @@ Este é um projeto independente. Não é feito nem endossado pelo Cursor (Anysph
 - Muda de cor conforme você usa mais: normal, depois amarelo, laranja e vermelho.
 - Avisa quando você passa de uma meta, quando o plano renova e quando um modelo gasta muito mais que o normal.
 - Se atualiza sozinho.
+
+## Conta corporativa ou pessoal
+
+O app descobre que tipo de conta do Cursor você conectou e mostra o que essa conta oferece.
+
+| | Corporativa (plano de time) | Pessoal (Free, Plus, Premium…) |
+| --- | --- | --- |
+| O que o Cursor mostra | Seu gasto em dólar, dentro do limite do plano | Só a parte usada da cota incluída, em porcentagem |
+| Barra de menus | %, dólar ou os dois; hoje e o ciclo | Só a % da cota incluída |
+| Cota de hoje | Sim | Não |
+| Meta pessoal de gasto | Sim | Não |
+| Avisos de uso | Pelo ciclo e pelo dia | Só pela cota incluída |
+| Aviso de renovação | Sim | Sim |
+| Modelos no cartão | Sim | Sim, quando a exportação do Cursor tem dados |
+| Dinheiro extra (sob demanda) | Entra no gasto em dólar | Aparece na aba Meta, com o limite, quando o plano tem isso ligado |
+| Ritmo e limites em dólar por modelo | Sim | Não |
+| Aviso de modelo novo | Sim | Sim |
+
+Nas Configurações, o que uma conta pessoal não usa fica em cinza, com uma nota embaixo das abas. O app nunca inventa um número que o Cursor não mostra.
 
 ## Instalação
 
