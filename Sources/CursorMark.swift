@@ -11,22 +11,41 @@ import AppKit
         guard let fraction, fraction >= 0.3 else { return nil }
         return fraction < 0.6 ? .systemYellow : fraction < 0.9 ? .systemOrange : .systemRed
     }
-    static func configure(_ button: NSButton, title: String, showsIcon: Bool, style: MenuIconStyle = .cursor, updateBadge: Bool = false, usage: Double? = nil) {
-        let base = showsIcon ? (style == .app ? appImage() : image()) : nil
-        let icon = base.map { base in usageColor(usage).map { tinted(base, $0, key: "\(style.rawValue)-\(usage.map { $0 < 0.6 ? 1 : $0 < 0.9 ? 2 : 3 } ?? 0)") } ?? base }
+    // Numbers use the same levels, darkened on a light menu bar where yellow and orange text would be hard to read.
+    private static let textColors: [NSColor] = [(NSColor.systemYellow, (0.62, 0.45, 0.0)), (.systemOrange, (0.78, 0.36, 0.0)), (.systemRed, (0.80, 0.12, 0.10))].map { color, light in
+        NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? color : NSColor(srgbRed: light.0, green: light.1, blue: light.2, alpha: 1)
+        }
+    }
+    static func textColor(_ fraction: Double?) -> NSColor {
+        guard let fraction, fraction >= 0.3 else { return .labelColor }
+        return textColors[fraction < 0.6 ? 0 : fraction < 0.9 ? 1 : 2]
+    }
+    // `parts`, when given, colors each piece of the reading by its own usage; otherwise the text keeps the bar's color.
+    static func configure(_ button: NSButton, title: String, showsIcon: Bool, style: MenuIconStyle = .cursor, updateBadge: Bool = false, usage: Double? = nil,
+                          parts: [MenuBarPresentation.Part]? = nil) {
+        let icon = showsIcon ? self.icon(style: style, usage: usage) : nil
         if button.image !== icon { button.image = icon }
         if button.font == nil || button.font?.pointSize != 11 { button.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium) }
         if button.imagePosition != .imageLeading { button.imagePosition = .imageLeading }
         let displayed = icon == nil && title.isEmpty ? "C" : title
         let badge = updateBadge ? (displayed.isEmpty ? Self.updateBadge : " " + Self.updateBadge) : ""
-        if button.title != displayed + badge || button.attributedTitle.length == 0 {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        let pieces = parts.flatMap { $0.map(\.text).joined() == displayed ? $0 : nil } ?? [MenuBarPresentation.Part(text: displayed, usage: nil)]
+        let text = NSMutableAttributedString()
+        for piece in pieces { text.append(NSAttributedString(string: piece.text, attributes: [.font: font, .foregroundColor: textColor(piece.usage)])) }
+        text.append(NSAttributedString(string: badge, attributes: [.font: NSFont.systemFont(ofSize: 8), .foregroundColor: NSColor.controlAccentColor, .baselineOffset: 2]))
+        if button.title != displayed + badge || !button.attributedTitle.isEqual(to: text) {
             button.title = displayed + badge
-            let text = NSMutableAttributedString(string: displayed, attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium), .foregroundColor: NSColor.labelColor])
-            text.append(NSAttributedString(string: badge, attributes: [.font: NSFont.systemFont(ofSize: 8), .foregroundColor: NSColor.controlAccentColor, .baselineOffset: 2]))
             button.attributedTitle = text
         }
     }
 
+    // The menu bar icon for a style at a usage level; settings draw its legend with the same images.
+    static func icon(style: MenuIconStyle, usage: Double?) -> NSImage {
+        let base = style == .app ? appImage() : image()
+        return usageColor(usage).map { tinted(base, $0, key: "\(style.rawValue)-\(usage.map { $0 < 0.6 ? 1 : $0 < 0.9 ? 2 : 3 } ?? 0)") } ?? base
+    }
     private static let tintedImages: NSCache<NSString, NSImage> = { let cache = NSCache<NSString, NSImage>(); cache.countLimit = 8; return cache }()
     // One cached image per style and level, so the button keeps the same instance between readings.
     private static func tinted(_ base: NSImage, _ color: NSColor, key: String) -> NSImage {

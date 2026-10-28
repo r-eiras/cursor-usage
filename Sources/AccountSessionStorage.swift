@@ -7,7 +7,7 @@ struct AccountSessionStorage {
     private var marker: URL { folder.appendingPathComponent(".signed-out") }
     var isSignedOut: Bool { FileManager.default.fileExists(atPath: marker.path) }
     func disconnect() throws {
-        let files = ["history.json", "events.json", "alert-history.json", "models-seen.json"]
+        let files = ["history.json", "events.json", "alert-history.json", "models-seen.json", "model-paces.json"]
         let manager = FileManager.default
         try manager.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let archive = folder.appendingPathComponent("account-history").appendingPathComponent(UUID().uuidString)

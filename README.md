@@ -26,7 +26,7 @@ If the sign-in page in that window doesn't work — for example, your Google acc
 
 That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
-**Current version: 3.4.4 · build 20 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
+**Current version: 3.4.5 · build 21 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
 | --- | --- |
@@ -35,7 +35,7 @@ That command is the way to install the app, and the same command updates it late
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.4.4`. Developers can build from source instead; see [Build and test](#build-and-test).
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.4.5`. Developers can build from source instead; see [Build and test](#build-and-test).
 
 ### The app vanishes, or no icon appears
 
@@ -97,9 +97,10 @@ This is an independent project. It is not affiliated with or endorsed by Anysphe
 ## What it does
 
 - Shows percentages, US-dollar amounts, or both, as consumed or remaining values.
-- Offers three menu-bar layouts: **Detailed** (today and cycle), **Compact** (cycle), and **Icons only**.
+- Offers four menu-bar layouts: **Detailed** (today and cycle), **Compact (cycle)**, **Compact (today)** and **Icons only**. The item takes only the space of its icon and text.
 - Lets you choose the app's gauge icon or the original Cursor logo, and open the card by click or hover.
-- Colors the menu bar icon by how much is used: the bar's own color below 30%, yellow up to 60%, orange up to 90% and red from there. **Icon color** follows the cycle or today's allowance, or can be turned off; it uses the share consumed even when the menu shows what remains.
+- Colors the menu bar icon by how much is used: the bar's own color below 30%, yellow up to 60%, orange up to 90% and red from there. **Icon color** follows the cycle or today's allowance, or can be turned off; it uses the share consumed even when the menu shows what remains. Settings show the four levels and what each basis compares.
+- Optionally colors the numbers too, each by its own period, so today can be red while the cycle is yellow. On a light menu bar the text colors are darker, to stay legible.
 - Notifications, Finder and the app switcher show the app's own gauge icon.
 - Displays spending, request counts, reported tokens, and model rankings in the usage card.
 - Provides reports for today, this week, the last three or seven days, and the current calendar month. New installations start with the current month.
@@ -144,7 +145,7 @@ How long a notice stays on screen is a macOS setting the app cannot change. **Te
 Your Cursor allowance is shared by every model, so these alerts are about where the money goes, not about a Cursor limit.
 
 - **First use of a model.** When a model shows up that this account has never used, you get a notification with what it has spent so far, and a **Monitor this model** action that opens Settings with it already listed. The first sync only learns the models you use, so you don't get a burst of notices when you install the app.
-- **Spending above your costliest model.** The app learns how much each model usually spends in 15 minutes, from the median of the last 14 days, and takes the costliest one as the reference. If any model spends more than that reference plus a threshold you choose — 50% by default — in the last 15 minutes, you get one notice that day, naming both models and, when it applies, how much more each request costs. It needs a few sessions of history before it can compare anything, and it ignores bursts under US$ 1.
+- **Spending far above a reference.** The app learns how much each model usually spends in 15 minutes, from the median of the last 14 days. The reference is your costliest model, or a model you pick from those used this cycle. If any model spends more than that reference plus a threshold you choose — any percentage, 50% by default, or a dollar amount — in the last 15 minutes, you get one notice that day, naming both models and, when it applies, how much more each request costs. It needs a few sessions of history before it can compare anything, and it ignores bursts under US$ 1. Each model's usual pace is saved, so a reference that leaves the 14-day history, or the cycle, keeps being compared with its last known pace.
 - **Monitored models.** Pick models from those you use and give each a daily limit, a cycle limit, or both. Each row shows what the model spent today and in the cycle, each beside its own limit. Leave a field empty for no limit; each filled one notifies once when that amount is passed.
 
 Model data comes from the usage history the app imports, so these alerts arrive within your refresh interval, not instantly.
@@ -172,7 +173,7 @@ No third-party runtime packages, Node.js, Electron, or Python installation are r
 - Usage metrics and preferences stay in `~/Library/Application Support/CursorUsage/`.
 - The app does not request an API key or run another AI tool to collect usage.
 - Authentication happens in the official Cursor flow. The app does not handle MFA codes itself.
-- The names of the models this account has used are kept in `models-seen.json`, so a first use can be recognized. Disconnecting archives it with the account's other metrics.
+- The names of the models this account has used are kept in `models-seen.json`, so a first use can be recognized, and each model's usual 15-minute spend in `model-paces.json`, so a reference model can still be compared after it leaves the history. Disconnecting archives it with the account's other metrics.
 - After a browser sign-in, the session is kept in `browser-session.json` in that folder, readable only by your user, and renewed about a day before it expires. Disconnecting the account deletes it.
 - Email and repository columns from the CSV are discarded. A digest identifies the account in imported metrics; exports containing multiple accounts are rejected.
 - Temporary CSV files are removed after import. Quota observations are retained for up to 40 days; disconnected account metrics remain in a local archive until removed.
@@ -182,7 +183,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.4.4, build 20**.
+Current version: **3.4.5, build 21**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 

@@ -77,6 +77,11 @@ check(abs((remainingBar.usedFraction ?? 0) - 0.25) < 0.0001 && remainingBar.icon
 check(remainingBar.iconUsage(.off) == nil && AppPreferences().iconColorBasis == .cycle, "Icon color starts on the cycle and can be turned off")
 let colored = MenuBarPresentation(title: "", tooltip: "", fraction: nil, usedFraction: 0.8, usedTodayFraction: 0.4)
 check(colored.iconUsage(.cycle) == 0.8 && colored.iconUsage(.day) == 0.4, "The color basis picks the cycle or today's share")
+check(remainingBar.parts.map(\.text).joined() == remainingBar.title && remainingBar.parts.last?.usage == remainingBar.usedFraction, "The title's pieces carry the share used of their own period")
+var todayOnly = AppPreferences(); todayOnly.menuBarDensity = .compactToday
+let todayBar = MenuBarPresentation.make(preferences: todayOnly, quota: quota, dataset: data, now: now, calendar: calendar)
+check(todayBar.parts.count == 1 && todayBar.parts[0].usage == todayBar.usedTodayFraction && !todayBar.title.contains("25%"), "Compact today shows only today's reading")
+check(!AppPreferences().colorNumbers && MenuBarDensity.compactToday.showsText && !MenuBarDensity.iconsOnly.showsText, "Number colors start off; compact today is a text layout")
 remaining.menuMode = .amount
 check(MenuBarPresentation.make(preferences: remaining, quota: quota, dataset: data, now: now, calendar: calendar).title.contains("750,00"), "Remaining money follows the same cycle")
 var compact = remaining; compact.menuBarDensity = .iconsOnly

@@ -27,6 +27,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private var installingUpdate = false
     // Models this account has used, so a first use can be told apart; nil until the first import.
     private var knownModels: Set<String>?
+    private var modelPaces: [String: ModelAlerts.Baseline] = [:]
     private var lastModelEvaluation: Date?
     private var isSignedOut = false
     private var signingOut = false
@@ -68,6 +69,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         if !isSignedOut, let data = try? Data(contentsOf: storage), let saved = try? JSONDecoder().decode([UsageSnapshot].self, from: data) { history = saved }
         if !isSignedOut, let data = try? Data(contentsOf: folder.appendingPathComponent("events.json")) { dataset = try? JSONDecoder().decode(UsageDataset.self, from: data) }
         if !isSignedOut, let data = try? Data(contentsOf: folder.appendingPathComponent("models-seen.json")) { knownModels = try? JSONDecoder().decode(Set<String>.self, from: data) }
+        if !isSignedOut, let data = try? Data(contentsOf: folder.appendingPathComponent("model-paces.json")) { modelPaces = (try? JSONDecoder().decode([String: ModelAlerts.Baseline].self, from: data)) ?? [:] }
         if let data = try? Data(contentsOf: folder.appendingPathComponent("period.json")), let saved = try? JSONDecoder().decode(PeriodSelection.self, from: data) { selection = saved }
         if let data = try? Data(contentsOf: folder.appendingPathComponent("preferences.json")), let saved = try? JSONDecoder().decode(AppPreferences.self, from: data) { preferences = saved }
         AppLanguage.current = preferences.language; card.localize()
@@ -424,8 +426,10 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         recoverStatusItemIfNeeded()
         if !status.isVisible { status.isVisible = true }
         if let button = status.button {
-            CursorMark.configure(button, title: presentation.title, showsIcon: preferences.showIcon || preferences.menuBarDensity == .iconsOnly, style: preferences.menuIconStyle, updateBadge: availableUpdate != nil, usage: presentation.iconUsage(preferences.iconColorBasis))
-            let width = ceil(button.attributedTitle.size().width) + (button.image == nil ? 14 : 34)
+            CursorMark.configure(button, title: presentation.title, showsIcon: preferences.showIcon || preferences.menuBarDensity == .iconsOnly, style: preferences.menuIconStyle, updateBadge: availableUpdate != nil, usage: presentation.iconUsage(preferences.iconColorBasis),
+                                parts: preferences.colorNumbers ? presentation.parts : nil)
+            // Just the icon, its gap and the text: macOS already spaces menu bar items apart.
+            let width = ceil(button.attributedTitle.size().width) + (button.image == nil ? 8 : 24)
             if status.length != max(24, width) { status.length = max(24, width) }
             // The badge is the one update signal that a notification utility or Focus cannot take away.
             let update = availableUpdate.map { L("Atualização \($0) disponível", "Update \($0) available") }
@@ -451,7 +455,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         browserSignIn?.cancel(); browserSignIn = nil; browserSessions.delete(); awaitingBrowserSession = false; updateBrowserButton()
         isSignedOut = true; signingOut = true; refreshGeneration += 1
         exporter.cancelAll(); exportInFlight = false; historySettled = true; closePopovers(); window.orderOut(nil); releaseBrowser()
-        history.removeAll(); dataset = nil; lastRead = .distantPast; notifications.resetAccount(); knownModels = nil; lastModelEvaluation = nil
+        history.removeAll(); dataset = nil; lastRead = .distantPast; notifications.resetAccount(); knownModels = nil; modelPaces = [:]; lastModelEvaluation = nil
         message = L("Conta desconectada", "Account disconnected"); analyticsMessage = L("Conecte sua conta para acompanhar o consumo.", "Connect your account to track usage.")
         render(forceCard: true)
         WKWebsiteDataStore.default().removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) { [weak self] in
@@ -520,7 +524,12 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private func evaluateModelAlerts(force: Bool = false) {
         guard !isSignedOut, let dataset, force || lastModelEvaluation != dataset.fetchedAt else { return }
         lastModelEvaluation = dataset.fetchedAt
-        let result = ModelAlerts.evaluate(dataset: dataset, preferences: preferences, known: knownModels, cycleStart: cycleStart, now: Date(), delivered: notifications.announcedIDs)
+        let result = ModelAlerts.evaluate(dataset: dataset, preferences: preferences, known: knownModels, cycleStart: cycleStart, now: Date(), delivered: notifications.announcedIDs, saved: modelPaces)
+        if result.baselines != modelPaces {
+            modelPaces = result.baselines
+            let file = AppFolder.url.appendingPathComponent("model-paces.json")
+            if let data = try? JSONEncoder().encode(modelPaces) { try? data.write(to: file, options: .atomic); try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path) }
+        }
         if result.known != knownModels {
             knownModels = result.known
             let file = AppFolder.url.appendingPathComponent("models-seen.json")
@@ -619,6 +628,13 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             panel.onStartupChange = { [weak self] in try self?.loginItem.setEnabled($0) }
             panel.onStartupSettings = { LoginItemManager.openSettings() }
             panel.onModelChoices = { [weak self] in self?.modelChoices() ?? [] }
+            panel.onModelPaces = { [weak self] in
+                guard let self else { return [:] }
+                // The same paces the alert uses: saved ones, refreshed by the current history.
+                var paces = self.modelPaces
+                if let dataset = self.dataset { for baseline in ModelAlerts.baselines(dataset.events, before: dataset.fetchedAt.addingTimeInterval(-ModelAlerts.window)) { paces[baseline.model] = baseline } }
+                return paces.mapValues(\.typicalMicros)
+            }
             panel.onConnect = { [weak self] in self?.showDashboard() }
             panel.onDisconnect = { [weak self] in self?.disconnectAccount() }
             panel.canDisconnect = { [weak self] in self.map { !$0.isSignedOut && !$0.signingOut } ?? false }
@@ -631,6 +647,10 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             panel.onPreview = { [weak self] value in
                 guard let self else { return "—" }
                 return MenuBarPresentation.make(preferences: value, quota: self.history.last, dataset: self.dataset, now: Date()).title
+            }
+            panel.onPreviewParts = { [weak self] value in
+                guard let self else { return [] }
+                return MenuBarPresentation.make(preferences: value, quota: self.history.last, dataset: self.dataset, now: Date()).parts
             }
             panel.onPreviewUsage = { [weak self] value in
                 guard let self else { return nil }

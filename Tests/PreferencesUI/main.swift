@@ -53,7 +53,7 @@ MainActor.assumeIsolated {
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         let views = descendants(content)
         let pickers = views.compactMap { $0 as? NSPopUpButton }
-        check(pickers.count == 8, "All menu, icon color, sync and language selectors are present")
+        check(pickers.count == 10, "All menu, icon color, model pace, sync and language selectors are present")
         let mode = pickers[0], basis = pickers[1], density = pickers[2]
         let navigation = views.compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 3 }!
         for index in 0..<3 {
@@ -66,13 +66,13 @@ MainActor.assumeIsolated {
         let showIcon = boxes.first { $0.title == L("Mostrar ícone", "Show icon") }!
         let cancel = boxes.first { $0.title == L("Cancelar", "Cancel") }!
         panel.present(AppPreferences())
-        change(basis, 1); change(density, 2)
+        change(basis, 1); change(density, 3)
         check(!mode.isEnabled && !basis.isEnabled && !showIcon.isEnabled, "Logo-only mode disables controls without a visible effect")
         check(pickers[3].isEnabled, "Logo-only mode still offers hover or click opening")
         change(density, 1)
         check(mode.isEnabled && basis.isEnabled, "Returning to text restores the controls")
         change(mode, 2); change(basis, 0)
-        change(pickers[3], 1); change(pickers[4], 1); change(pickers[5], 2); change(pickers[6], 2); change(pickers[7], 2)
+        change(pickers[3], 1); change(pickers[4], 1); change(pickers[5], 2); change(pickers[8], 2); change(pickers[9], 2)
         showIcon.performClick(nil)
         saved = nil; save.performClick(nil)
         check(saved?.menuIconStyle == .cursor, "The Cursor icon choice is saved independently of the display mode")
@@ -106,14 +106,33 @@ MainActor.assumeIsolated {
         panel.onPreviewUsage = { _ in 0.95 }; panel.updateReadings()
         check(preview.image != nil && preview.image?.isTemplate == false, "The preview shows the icon in its usage color")
         panel.onPreviewUsage = nil; panel.updateReadings()
+        let legend = views.compactMap { $0 as? NSTextField }.map(\.stringValue)
+        check(["< 30%", "30–60%", "60–90%", "≥ 90%"].allSatisfy(legend.contains), "Icon color shows the four levels next to the choice")
+        let samples = views.compactMap { $0 as? NSImageView }.filter { $0.frame.height == 14 }
+        check(samples.count == 4 && samples.last?.image === CursorMark.icon(style: .app, usage: 0.95), "Each level shows the icon in its color")
+        func note() -> String { views.compactMap { $0 as? NSTextField }.first { $0.font?.pointSize == 10 && $0.frame.height == 42 }?.stringValue ?? "" }
+        change(pickers[5], 2); check(note().contains(L("Zera à meia-noite", "Resets at midnight")), "The day basis explains today's allowance")
+        change(pickers[5], 0); check(note() == L("O ícone fica sempre na cor da barra.", "The icon always keeps the menu bar's color.") && samples.allSatisfy { $0.alphaValue < 1 }, "Turning colors off says so and dims the legend")
+        change(pickers[5], 1); check(note().contains(L("Consumido no ciclo", "Used this cycle")), "The cycle basis explains what it compares")
         showIcon.performClick(nil); check(preview.image == nil, "Hiding the icon updates the preview immediately")
         let labels = boxes.first { $0.title == L("Mostrar rótulos Hoje e Ciclo", "Show Today and Cycle labels") }!
         check(labels.isEnabled, "Detailed display offers optional labels")
         labels.performClick(nil); saved = nil; panel.onSave = { saved = $0; return true }; save.performClick(nil)
         check(saved?.showDetailedLabels == false, "Save preserves the detailed label choice")
-        change(density, 2)
+        change(density, 3)
         check(preview.title.isEmpty && preview.image != nil && !labels.isEnabled, "Logo-only preview matches the actual icon-only menu item")
         change(density, 1); check(!labels.isEnabled, "Compact mode has no daily labels to configure")
+        change(density, 2); check(!labels.isEnabled && showIcon.isEnabled, "Compact today shows text without the daily labels")
+        let numbers = boxes.first { $0.title == L("Números também, cada um pelo seu período", "Numbers too, each by its own period") }!
+        check(numbers.isEnabled && numbers.state == .off, "Number colors are optional and start off")
+        panel.onPreviewParts = { _ in [MenuBarPresentation.Part(text: "95%", usage: 0.95)] }; panel.onPreview = { _ in "95%" }
+        numbers.performClick(nil)
+        check(preview.attributedTitle.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == CursorMark.textColor(0.95), "The preview colors the numbers when the option is on")
+        saved = nil; save.performClick(nil); check(saved?.colorNumbers == true && saved?.menuBarDensity == .compactToday, "Save commits number colors and the compact today layout")
+        check(note().contains(L("Números: hoje pela cota do dia", "Numbers: today by the daily allowance")), "The shared note explains the numbers when they are colored")
+        check(numbers.frame.minY > pickers[5].frame.minY && numbers.frame.minX == pickers[5].frame.minX && numbers.frame.maxY < samples[0].frame.minY, "Icon and number colors sit together, above the shared legend")
+        change(density, 3); check(!numbers.isEnabled, "Logo-only has no numbers to color")
+        panel.onPreviewParts = nil
         panel.present(AppPreferences())
         let account = boxes.first { $0.title == L("Conta do Cursor", "Cursor account") }!
         var openedAccount = false; saved = nil
@@ -173,11 +192,36 @@ MainActor.assumeIsolated {
         check(headers.contains(L("Hoje", "Today")) && headers.contains(L("No ciclo", "This cycle")), "The columns name today and the cycle")
         check(models.draft()?.monitored == [MonitoredModel(model: "gemini-argon", dailyLimitMicros: 20_500_000, cycleLimitMicros: nil)], "Updating the spend keeps the limits being typed")
         fields()[1].stringValue = "50"
-        let rate = models.subviews.compactMap { $0 as? NSButton }.first { $0.title.contains("50%") }!
-        let slider = models.subviews.compactMap { $0 as? NSSlider }.first!
-        slider.integerValue = 80; _ = slider.sendAction(slider.action, to: slider.target)
-        check(rate.title.contains("80%") && models.draft()?.ratePercent == 80, "The threshold slider updates its title and the draft")
-        rate.performClick(nil); check(!slider.isEnabled && models.draft()?.notifyRate == false, "Turning the rate alert off disables its threshold")
+        let rate = models.subviews.compactMap { $0 as? NSButton }.first { $0.title == L("Avisar quando um modelo gastar muito acima da referência", "Notify when a model spends far above the reference") }!
+        let threshold = models.subviews.compactMap { $0 as? NSTextField }.first { $0.isEditable }!
+        let paceMenus = models.subviews.compactMap { $0 as? NSPopUpButton }; let unit = paceMenus[0], reference = paceMenus[1]
+        check(threshold.stringValue == "50" && unit.titleOfSelectedItem == "%" && reference.indexOfSelectedItem == 0, "The pace alert starts at 50% above the costliest model")
+        threshold.stringValue = "250"; check(models.draft()?.ratePercent == 250, "Any percentage can be typed")
+        unit.selectItem(at: 1); _ = unit.sendAction(unit.action, to: unit.target)
+        check(threshold.stringValue == L("1,00", "1.00"), "Switching to US$ shows the dollar threshold")
+        threshold.stringValue = L("2,50", "2.50")
+        check(models.draft()?.rateUnit == .amount && models.draft()?.rateAmountMicros == 2_500_000 && models.draft()?.ratePercent == 250, "Each unit keeps its own value")
+        threshold.stringValue = "0"; check(models.draft() == nil, "A zero threshold cannot be saved")
+        threshold.stringValue = L("2,50", "2.50")
+        check(reference.itemTitles == [L("Seu modelo mais caro", "Your costliest model"), "gemini-argon"], "References are the costliest model or a model used this cycle")
+        reference.selectItem(at: 1); _ = reference.sendAction(reference.action, to: reference.target)
+        check(models.draft()?.rateReference == "gemini-argon", "A chosen reference is saved by name")
+        let paceLabel = models.subviews.compactMap { $0 as? NSTextField }.first { !$0.isEditable && $0.frame.minY == 150 }!
+        func paceText() -> String { paceLabel.stringValue }
+        check(paceText().contains(L("Ainda sem ritmo de gemini-argon", "No pace for gemini-argon yet")), "Without a pace the reference says what it still needs")
+        models.setPaces(["claude-opus": 10_000_000, "gemini-argon": 4_000_000])
+        check(paceText().contains("gemini-argon") && paceText().contains(MenuBarPresentation.money(4_000_000)) && paceText().contains(MenuBarPresentation.money(6_500_000)), "The chosen reference shows its usual 15 minutes and the amount that alerts")
+        reference.selectItem(at: 0); _ = reference.sendAction(reference.action, to: reference.target)
+        check(paceText().contains("claude-opus") && paceText().contains(MenuBarPresentation.money(12_500_000)), "The costliest model is named with its pace")
+        unit.selectItem(at: 0); _ = unit.sendAction(unit.action, to: unit.target)
+        check(paceText().contains(MenuBarPresentation.money(35_000_000)), "A percentage threshold shows the amount it means: 250% above US$ 10 is US$ 35")
+        threshold.stringValue = "100"; models.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: threshold))
+        check(paceText().contains(MenuBarPresentation.money(20_000_000)), "Typing a new threshold updates the amount right away")
+        unit.selectItem(at: 1); _ = unit.sendAction(unit.action, to: unit.target)
+        reference.selectItem(at: 1); _ = reference.sendAction(reference.action, to: reference.target)
+        models.updateSpend([])
+        check(reference.titleOfSelectedItem == "gemini-argon", "A chosen reference stays selected after it leaves the cycle")
+        rate.performClick(nil); check(!threshold.isEnabled && !reference.isEnabled && models.draft()?.notifyRate == false, "Turning the pace alert off disables its settings")
         let remove = models.subviews.flatMap(\.subviews).compactMap { $0 as? NSButton }.first { $0.image?.accessibilityDescription == L("Parar de monitorar gemini-argon", "Stop monitoring gemini-argon") }!
         remove.performClick(nil)
         check(models.monitoredModels.isEmpty && models.frame.height == emptyHeight, "Removing the last model restores the empty list")

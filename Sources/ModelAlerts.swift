@@ -10,8 +10,9 @@ enum ModelAlerts {
     // Bursts under a dollar are too small to be worth a notification, however fast they are relatively.
     static let minimumBurstMicros: Int64 = 1_000_000
 
-    struct Baseline: Equatable { let model: String; let typicalMicros: Int64; let costPerRequestMicros: Int64 }
-    struct Evaluation { let alerts: [BudgetAlert]; let known: Set<String> }
+    // Only this pace is kept on disk per model, so a reference that leaves the 14-day history can still be compared.
+    struct Baseline: Equatable, Codable { let model: String; let typicalMicros: Int64; let costPerRequestMicros: Int64 }
+    struct Evaluation { let alerts: [BudgetAlert]; let known: Set<String>; var baselines: [String: Baseline] = [:] }
 
     // The usual 15-minute spend of each model: the median of the windows in which it was used, so one burst cannot
     // become the norm. Models used in fewer windows have no baseline yet. Sorted from the costliest.
@@ -33,7 +34,7 @@ enum ModelAlerts {
     // `known` is nil until the first import: that one only learns which models are in use, since announcing all of
     // them at once would be noise. The returned set always includes every model seen, alerts on or off.
     static func evaluate(dataset: UsageDataset, preferences: AppPreferences, known: Set<String>?, cycleStart: Date?, now: Date,
-                         calendar: Calendar = .current, delivered: Set<String>) -> Evaluation {
+                         calendar: Calendar = .current, delivered: Set<String>, saved: [String: Baseline] = [:]) -> Evaluation {
         let money = { (micros: Int64) in MenuBarPresentation.money(Double(micros)) }
         let models = Set(dataset.events.map(\.model))
         var alerts: [BudgetAlert] = []
@@ -45,35 +46,43 @@ enum ModelAlerts {
             }
         }
         // Rates and limits need current data; an old import must not raise or repeat them.
-        guard now.timeIntervalSince(dataset.fetchedAt) <= preferences.freshnessInterval else { return Evaluation(alerts: alerts, known: (known ?? []).union(models)) }
+        guard now.timeIntervalSince(dataset.fetchedAt) <= preferences.freshnessInterval else { return Evaluation(alerts: alerts, known: (known ?? []).union(models), baselines: saved) }
         let formatter = DateFormatter(); formatter.calendar = calendar; formatter.timeZone = calendar.timeZone; formatter.dateFormat = "yyyy-MM-dd"
         let dayKey = formatter.string(from: now)
-        if preferences.notifyModelRate {
-            let end = dataset.fetchedAt, start = end.addingTimeInterval(-window)
-            if let reference = baselines(dataset.events, before: start).first, reference.typicalMicros > 0 {
-                var bursts: [String: (cost: Int64, count: Int64)] = [:]
-                for event in dataset.events where event.date > start && event.date <= end {
-                    let total = bursts[event.model] ?? (0, 0); bursts[event.model] = (total.cost + event.costMicros, total.count + 1)
+        let end = dataset.fetchedAt, start = end.addingTimeInterval(-window)
+        let fresh = baselines(dataset.events, before: start)
+        var paces = saved; for baseline in fresh { paces[baseline.model] = baseline }
+        // A chosen reference uses its current pace, or the last one saved; otherwise the costliest model now, or the costliest saved.
+        let reference = preferences.modelRateReference.map { paces[$0] } ?? fresh.first ?? paces.values.max { $0.typicalMicros < $1.typicalMicros }
+        if preferences.notifyModelRate, let reference, reference.typicalMicros > 0 {
+            var bursts: [String: (cost: Int64, count: Int64)] = [:]
+            for event in dataset.events where event.date > start && event.date <= end {
+                let total = bursts[event.model] ?? (0, 0); bursts[event.model] = (total.cost + event.costMicros, total.count + 1)
+            }
+            let threshold = preferences.modelRateUnit == .percent
+                ? Int64((Double(reference.typicalMicros) * (1 + Double(preferences.modelRatePercent) / 100)).rounded(.up))
+                : reference.typicalMicros + preferences.modelRateAmountMicros
+            let named = preferences.modelRateReference != nil
+            for (model, burst) in bursts.sorted(by: { $0.key < $1.key }) where burst.cost >= minimumBurstMicros {
+                let id = "model-rate:\(model):\(dayKey)"
+                guard burst.cost >= threshold, !delivered.contains(id) else { continue }
+                let over = preferences.modelRateUnit == .percent
+                    ? "\(Int(((Double(burst.cost) / Double(reference.typicalMicros) - 1) * 100).rounded()))%" : money(burst.cost - reference.typicalMicros)
+                let usual = money(reference.typicalMicros), spent = money(burst.cost)
+                if model == reference.model {
+                    alerts.append(BudgetAlert(id: id, kind: .modelRate, title: L("\(model) está gastando \(over) acima do normal", "\(model) is spending \(over) above its usual rate"),
+                        body: L("\(spent) nos últimos 15 min. Ele costuma gastar \(usual) em 15 min.", "\(spent) in the last 15 min. It usually spends \(usual) in 15 min.")))
+                    continue
                 }
-                for (model, burst) in bursts.sorted(by: { $0.key < $1.key }) where burst.cost >= minimumBurstMicros {
-                    let ratio = Double(burst.cost) / Double(reference.typicalMicros)
-                    let id = "model-rate:\(model):\(dayKey)"
-                    guard ratio >= 1 + Double(preferences.modelRatePercent) / 100, !delivered.contains(id) else { continue }
-                    let over = Int(((ratio - 1) * 100).rounded())
-                    let usual = money(reference.typicalMicros), spent = money(burst.cost)
-                    if model == reference.model {
-                        alerts.append(BudgetAlert(id: id, kind: .modelRate, title: L("\(model) está gastando \(over)% acima do normal", "\(model) is spending \(over)% above its usual rate"),
-                            body: L("\(spent) nos últimos 15 min. Ele costuma gastar \(usual) em 15 min.", "\(spent) in the last 15 min. It usually spends \(usual) in 15 min.")))
-                        continue
-                    }
-                    var body = L("\(spent) nos últimos 15 min. Seu \(reference.model) costuma gastar \(usual).", "\(spent) in the last 15 min. Your \(reference.model) usually spends \(usual).")
-                    if reference.costPerRequestMicros > 0, burst.count > 0 {
-                        let perRequest = Double(burst.cost) / Double(burst.count) / Double(reference.costPerRequestMicros)
-                        let times = localizedDecimal(String(format: "%.1f", perRequest))
-                        if perRequest >= 1.5 { body += L(" Cada requisição custa \(times)× a do \(reference.model).", " Each request costs \(times)× one of \(reference.model).") }
-                    }
-                    alerts.append(BudgetAlert(id: id, kind: .modelRate, title: L("\(model) está gastando \(over)% acima do seu modelo mais caro", "\(model) is spending \(over)% above your costliest model"), body: body))
+                var body = L("\(spent) nos últimos 15 min. Seu \(reference.model) costuma gastar \(usual).", "\(spent) in the last 15 min. Your \(reference.model) usually spends \(usual).")
+                if reference.costPerRequestMicros > 0, burst.count > 0 {
+                    let perRequest = Double(burst.cost) / Double(burst.count) / Double(reference.costPerRequestMicros)
+                    let times = localizedDecimal(String(format: "%.1f", perRequest))
+                    if perRequest >= 1.5 { body += L(" Cada requisição custa \(times)× a do \(reference.model).", " Each request costs \(times)× one of \(reference.model).") }
                 }
+                let title = named ? L("\(model) está gastando \(over) acima do \(reference.model)", "\(model) is spending \(over) above \(reference.model)")
+                    : L("\(model) está gastando \(over) acima do seu modelo mais caro", "\(model) is spending \(over) above your costliest model")
+                alerts.append(BudgetAlert(id: id, kind: .modelRate, title: title, body: body))
             }
         }
         let today = calendar.startOfDay(for: now)
@@ -94,6 +103,6 @@ enum ModelAlerts {
                     body: L("\(money(cycleSpend)) neste ciclo. Sua meta para este modelo é \(money(limit)).", "\(money(cycleSpend)) this cycle. Your goal for this model is \(money(limit)).")))
             }
         }
-        return Evaluation(alerts: alerts, known: (known ?? []).union(models))
+        return Evaluation(alerts: alerts, known: (known ?? []).union(models), baselines: paces)
     }
 }

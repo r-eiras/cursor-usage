@@ -19,8 +19,8 @@ func dataset(_ events: [UsageEvent], fetched: Date = now.addingTimeInterval(-60)
     UsageDataset(events: events, coverageStart: now.addingTimeInterval(-30 * 86400), coverageEnd: now, fetchedAt: fetched, accountDigest: "synthetic")
 }
 func evaluate(_ events: [UsageEvent], _ preferences: AppPreferences = AppPreferences(), known: Set<String>? = ["claude-opus", "claude-sonnet", "auto", "gpt-codex", "gemini-argon"],
-              fetched: Date = now.addingTimeInterval(-60), cycleStart: Date? = nil, delivered: Set<String> = []) -> ModelAlerts.Evaluation {
-    ModelAlerts.evaluate(dataset: dataset(events, fetched: fetched), preferences: preferences, known: known, cycleStart: cycleStart, now: now, calendar: calendar, delivered: delivered)
+              fetched: Date = now.addingTimeInterval(-60), cycleStart: Date? = nil, delivered: Set<String> = [], saved: [String: ModelAlerts.Baseline] = [:]) -> ModelAlerts.Evaluation {
+    ModelAlerts.evaluate(dataset: dataset(events, fetched: fetched), preferences: preferences, known: known, cycleStart: cycleStart, now: now, calendar: calendar, delivered: delivered, saved: saved)
 }
 
 for language in [AppLanguage.portuguese, .english] {
@@ -53,6 +53,22 @@ for language in [AppLanguage.portuguese, .english] {
     check(!stale.contains { $0.kind == .modelRate } && stale.contains { $0.kind == .newModel }, "Old data never raises a rate alert, but a first use is still news")
     check(evaluate([event("gemini-argon", 15, now.addingTimeInterval(-300))]).alerts.allSatisfy { $0.kind != .modelRate }, "Without enough history there is nothing to compare with")
 
+    var dollars = AppPreferences(); dollars.modelRateUnit = .amount; dollars.modelRateAmountMicros = 5_000_000
+    let byAmount = evaluate(burst, dollars).alerts.filter { $0.kind == .modelRate }
+    check(byAmount.count == 1 && byAmount[0].title.contains(MenuBarPresentation.money(5_000_000)), "A dollar threshold alerts at the reference's usual spend plus that amount, and says how much above")
+    dollars.modelRateAmountMicros = 5_010_000; check(evaluate(burst, dollars).alerts.allSatisfy { $0.kind != .modelRate }, "Just under the dollar threshold stays quiet")
+    var chosen = AppPreferences(); chosen.modelRateReference = "claude-sonnet"
+    let bySonnet = evaluate(history + [event("auto", 7, now.addingTimeInterval(-300))], chosen).alerts.filter { $0.kind == .modelRate }
+    check(bySonnet.count == 1 && bySonnet[0].title.contains("claude-sonnet") && !bySonnet[0].title.contains(L("mais caro", "costliest")), "A chosen reference replaces the costliest model and is named")
+    check(evaluate(history + [event("auto", 7, now.addingTimeInterval(-300))]).alerts.allSatisfy { $0.kind != .modelRate }, "The same burst is normal against the costliest model")
+    let learned = evaluate(burst).baselines
+    check(learned["claude-sonnet"]?.typicalMicros == 4_000_000 && learned["claude-opus"]?.typicalMicros == 10_000_000, "Each model's pace is returned to be saved")
+    let withoutSonnet = history.filter { $0.model != "claude-sonnet" } + [event("auto", 7, now.addingTimeInterval(-300))]
+    check(evaluate(withoutSonnet, chosen).alerts.allSatisfy { $0.kind != .modelRate }, "Without its saved pace, a reference that left the history cannot be compared")
+    let fromSaved = evaluate(withoutSonnet, chosen, saved: learned)
+    check(fromSaved.alerts.filter { $0.kind == .modelRate }.count == 1 && fromSaved.baselines["claude-sonnet"] == learned["claude-sonnet"], "A reference that left the history keeps its saved pace")
+    check(evaluate(burst, fetched: now.addingTimeInterval(-7200), saved: learned).baselines == learned, "Old data leaves the saved paces untouched")
+
     var monitored = AppPreferences(); monitored.notifyModelRate = false
     monitored.monitoredModels = [MonitoredModel(model: "gemini-argon", dailyLimitMicros: 20_000_000, cycleLimitMicros: 30_000_000)]
     check(evaluate(burst, monitored).alerts.allSatisfy { $0.kind != .modelLimit }, "Below its limits a monitored model stays quiet")
@@ -69,8 +85,9 @@ for language in [AppLanguage.portuguese, .english] {
 
 let defaults = AppPreferences()
 check(defaults.notifyNewModel && defaults.notifyModelRate && defaults.modelRatePercent == 50 && defaults.monitoredModels.isEmpty, "Model alerts need no setup: on, at 50%, with no monitored models")
-var clamped = AppPreferences(); clamped.modelRatePercent = 1; check(clamped.modelRatePercent == 10, "The threshold has a sensible floor")
-clamped.modelRatePercent = 900; check(clamped.modelRatePercent == 300, "The threshold has a sensible ceiling")
+var clamped = AppPreferences(); clamped.modelRatePercent = 0; check(clamped.modelRatePercent == 1, "Any percentage from 1% can be set")
+clamped.modelRatePercent = 900; check(clamped.modelRatePercent == 900, "Large percentages are kept")
+clamped.modelRatePercent = 50_000; check(clamped.modelRatePercent == 10_000, "The threshold still has a ceiling")
 var saved = AppPreferences(); saved.notifyNewModel = false; saved.modelRatePercent = 80
 saved.monitoredModels = [MonitoredModel(model: "gemini-argon", dailyLimitMicros: 20_000_000, cycleLimitMicros: nil)]
 let restored = try JSONDecoder().decode(AppPreferences.self, from: JSONEncoder().encode(saved))

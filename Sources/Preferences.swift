@@ -16,10 +16,14 @@ enum UsageDisplayBasis: String, Codable, CaseIterable {
     var title: String { self == .used ? L("Consumido", "Used") : L("Restante", "Remaining") }
 }
 enum MenuBarDensity: String, Codable, CaseIterable {
-    case detailed, compact, iconsOnly
+    case detailed, compact, compactToday, iconsOnly
     var title: String {
-        switch self { case .detailed: return L("Detalhada", "Detailed"); case .compact: return L("Compacta", "Compact"); case .iconsOnly: return L("Somente logos", "Logos only") }
+        switch self {
+        case .detailed: return L("Detalhada (hoje e ciclo)", "Detailed (today and cycle)"); case .compact: return L("Compacta (ciclo)", "Compact (cycle)")
+        case .compactToday: return L("Compacta (hoje)", "Compact (today)"); case .iconsOnly: return L("Somente logos", "Logos only")
+        }
     }
+    var showsText: Bool { self != .iconsOnly }
 }
 enum MenuIconStyle: String, Codable, CaseIterable {
     case app, cursor
@@ -28,7 +32,12 @@ enum MenuIconStyle: String, Codable, CaseIterable {
 // What the menu bar icon's color follows: nothing, the share of the cycle used, or the share of today's allowance used.
 enum IconColorBasis: String, Codable, CaseIterable {
     case off, cycle, day
-    var title: String { switch self { case .off: return L("Desligada", "Off"); case .cycle: return L("Pelo uso do ciclo", "By cycle usage"); case .day: return L("Pelo uso do dia", "By today's usage") } }
+    var title: String { switch self { case .off: return L("Ícone sem cor", "Icon without color"); case .cycle: return L("Ícone pelo uso do ciclo", "Icon by cycle usage"); case .day: return L("Ícone pelo uso do dia", "Icon by today's usage") } }
+}
+// The rate alert's threshold: a share above the reference's usual 15 minutes, or a dollar amount above it.
+enum RateThresholdUnit: String, Codable, CaseIterable {
+    case percent, amount
+    var title: String { self == .percent ? "%" : "US$" }
 }
 enum MenuOpenBehavior: String, Codable, CaseIterable {
     case hoverAndClick, clickOnly
@@ -58,6 +67,10 @@ struct AppPreferences: Codable {
     private var storedModelRatePercent: Int?
     private var storedMonitoredModels: [MonitoredModel]?
     private var storedIconColorBasis: IconColorBasis?
+    private var storedColorNumbers: Bool?
+    private var storedModelRateUnit: RateThresholdUnit?
+    private var storedModelRateAmountMicros: Int64?
+    private var storedModelRateReference: String?
     var menuIconStyle: MenuIconStyle { get { storedMenuIconStyle ?? .app } set { storedMenuIconStyle = newValue } }
     var showDetailedLabels: Bool { get { storedShowDetailedLabels ?? true } set { storedShowDetailedLabels = newValue } }
     var menuOpenBehavior: MenuOpenBehavior { get { storedMenuOpenBehavior ?? .hoverAndClick } set { storedMenuOpenBehavior = newValue } }
@@ -70,9 +83,15 @@ struct AppPreferences: Codable {
     // Model alerts need no setup, so they start on; like the update notice, the first one asks macOS for permission.
     var notifyNewModel: Bool { get { storedNotifyNewModel ?? true } set { storedNotifyNewModel = newValue } }
     var notifyModelRate: Bool { get { storedNotifyModelRate ?? true } set { storedNotifyModelRate = newValue } }
-    var modelRatePercent: Int { get { storedModelRatePercent ?? 50 } set { storedModelRatePercent = min(300, max(10, newValue)) } }
+    var modelRatePercent: Int { get { storedModelRatePercent ?? 50 } set { storedModelRatePercent = min(10_000, max(1, newValue)) } }
     var monitoredModels: [MonitoredModel] { get { storedMonitoredModels ?? [] } set { storedMonitoredModels = newValue } }
     var iconColorBasis: IconColorBasis { get { storedIconColorBasis ?? .cycle } set { storedIconColorBasis = newValue } }
+    // Today's and the cycle's numbers each take the color of their own usage.
+    var colorNumbers: Bool { get { storedColorNumbers ?? false } set { storedColorNumbers = newValue } }
+    var modelRateUnit: RateThresholdUnit { get { storedModelRateUnit ?? .percent } set { storedModelRateUnit = newValue } }
+    var modelRateAmountMicros: Int64 { get { storedModelRateAmountMicros ?? 1_000_000 } set { storedModelRateAmountMicros = min(100_000_000_000, max(10_000, newValue)) } }
+    // nil compares with the costliest model; a name compares with that model, even after it leaves the history.
+    var modelRateReference: String? { get { storedModelRateReference } set { storedModelRateReference = newValue?.isEmpty == true ? nil : newValue } }
     var freshnessInterval: TimeInterval { max(600, syncInterval.seconds + 60) }
     var menuMode: MenuDisplayMode = .percentage
     var showIcon = true
@@ -138,6 +157,9 @@ struct MenuBarPresentation {
     let fraction: Double?
     // Share used, whatever the menu shows: a remaining amount must not turn the icon red while plenty is left.
     var usedFraction: Double? = nil, usedTodayFraction: Double? = nil
+    // The title in pieces, each with the share used it may be colored by; separators and labels-only pieces carry none.
+    struct Part: Equatable { let text: String; let usage: Double? }
+    var parts: [Part] = []
     // The fraction the icon color follows, or nil when coloring is off or the day's figures are not fresh.
     func iconUsage(_ basis: IconColorBasis) -> Double? { basis == .cycle ? usedFraction : basis == .day ? usedTodayFraction : nil }
     static func money(_ micros: Double) -> String {
@@ -167,19 +189,22 @@ struct MenuBarPresentation {
         let cycleContent = content(cost: displayedCost, fraction: fraction)
         let dailyContent = content(cost: dailyCost, fraction: dailyFraction)
         let qualifier = preferences.cursorUsageBasis == .used ? L("consumidos", "used") : L("disponíveis", "available")
-        let title: String
+        let usedFraction = cost.flatMap { cost in denominator.flatMap { $0 > 0 ? Double(cost) / $0 : nil } }
+        let usedTodayFraction = freshDaily ? budget?.todaySpentMicros.flatMap { spent in budget?.dailyLimitMicros.flatMap { $0 > 0 ? Double(spent) / $0 : nil } } : nil
+        let parts: [Part]
         switch preferences.menuBarDensity {
         case .detailed:
             let today = preferences.showDetailedLabels ? dailyContent + L(" Hoje", " Today") : dailyContent
             let cycle = preferences.showDetailedLabels ? cycleContent + L(" Ciclo", " Cycle") : cycleContent
-            title = "\(today) · \(cycle)"
-        case .compact: title = cycleContent
-        case .iconsOnly: title = ""
+            parts = [Part(text: today, usage: usedTodayFraction), Part(text: " · ", usage: nil), Part(text: cycle, usage: usedFraction)]
+        case .compact: parts = [Part(text: cycleContent, usage: usedFraction)]
+        case .compactToday: parts = [Part(text: dailyContent, usage: usedTodayFraction)]
+        case .iconsOnly: parts = []
         }
+        let title = parts.map(\.text).joined()
         return MenuBarPresentation(title: title,
             tooltip: "\(L("Hoje", "Today")): \(dailyContent) \(qualifier)\n\(L("Cota diária calculada", "Calculated daily allowance")): \(freshDaily ? budget?.dailyLimitMicros.map(money) ?? "—" : "—")\n\(L("Ciclo da assinatura", "Subscription cycle")): \(amount) \(qualifier)\n\(percent) \(L("do limite do ciclo", "of the cycle limit")): \(denominator.map(money) ?? L("indisponível", "unavailable"))\n\(preferences.personalBudgetEnabled ? L("Referência: sua meta pessoal", "Reference: your personal goal") : L("Referência: cota oficial", "Reference: official quota"))", fraction: fraction,
-            usedFraction: cost.flatMap { cost in denominator.flatMap { $0 > 0 ? Double(cost) / $0 : nil } },
-            usedTodayFraction: freshDaily ? budget?.todaySpentMicros.flatMap { spent in budget?.dailyLimitMicros.flatMap { $0 > 0 ? Double(spent) / $0 : nil } } : nil)
+            usedFraction: usedFraction, usedTodayFraction: usedTodayFraction, parts: parts)
     }
 }
 
