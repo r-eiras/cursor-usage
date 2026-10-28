@@ -132,6 +132,11 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     }
     private func tick() {
         if !isSignedOut && !loginPaused && Date().timeIntervalSince(lastRefresh) >= preferences.syncInterval.seconds && (!window.isVisible || webView?.url?.path == dashboard.path) { refresh() }
+        // A session that was working and got paused by a hidden redirect tries again now and then, instead of staying
+        // paused until someone notices; a real sign-out lands on sign-in again and pauses again.
+        if !isSignedOut && loginPaused && !history.isEmpty && !window.isVisible && Date().timeIntervalSince(lastRefresh) >= max(900, preferences.syncInterval.seconds) {
+            loginPaused = false; refresh()
+        }
         if Date().timeIntervalSince(lastRenewalCheck) >= 3600 { lastRenewalCheck = Date(); renewBrowserSessionIfNeeded() }
         if Date() >= nextUpdateCheck { nextUpdateCheck = Date().addingTimeInterval(AppUpdater.checkInterval); checkForUpdatesQuietly() }
         readUsage(); releasePageIfSynced(); evaluateModelAlerts(); render()

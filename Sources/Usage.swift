@@ -2,15 +2,18 @@ import Foundation
 
 enum DashboardLocation {
     enum Destination: Equatable { case usage, dashboard, authRedirect, signIn }
+    static let signInPaths: Set<String> = ["login", "sign-in", "signin", "sign-up", "signup", "logout"]
     static func destination(for url: URL?) -> Destination {
         guard let url, url.scheme == "https",
               ["cursor.com", "www.cursor.com"].contains(url.host ?? "") else { return .signIn }
         let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        if path == "dashboard/usage" { return .usage }
+        // The usage page, at its current address and the newer one Cursor started moving it to.
+        if path == "dashboard/usage" || path == "v2/usage" || path.hasPrefix("v2/usage/") { return .usage }
+        // Only real sign-in pages pause a session; an unknown page could be the dashboard moving again.
+        if signInPaths.contains(path) || path.hasPrefix("api/auth/login") || path.hasPrefix("api/auth/signup") { return .signIn }
         // Cursor's own auth steps (session bootstrap, refresh) pass through on the way back to the dashboard.
         if path.hasPrefix("api/auth/") { return .authRedirect }
-        if path == "dashboard" || path.hasPrefix("dashboard/") { return .dashboard }
-        return .signIn
+        return .dashboard
     }
 }
 

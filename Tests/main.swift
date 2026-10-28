@@ -53,4 +53,8 @@ check(UsageParser.parseOnDemand("Spending\nOn-Demand Usage\nEnable on-demand usa
 check(UsageParser.parseOnDemand("Premium R$154.90 /mo. $20 / $40") == nil, "Amounts outside the on-demand section are ignored")
 check(DashboardLocation.destination(for: URL(string: "https://cursor.com/api/auth/bootstrap-cursor-web-target?x=1")) == .authRedirect, "Cursor's auth bootstrap is a step on the way, not a sign-in")
 check(DashboardLocation.destination(for: URL(string: "https://cursor.com.attacker.example/api/auth/bootstrap")) == .signIn, "Only Cursor's own auth steps pass")
+check(DashboardLocation.destination(for: URL(string: "https://cursor.com/v2/usage?from=2026-10-01")) == .usage, "The usage page's newer address is still the usage page")
+check(DashboardLocation.destination(for: URL(string: "https://cursor.com/v2")) == .dashboard && DashboardLocation.destination(for: URL(string: "https://cursor.com/v2/settings")) == .dashboard, "Other pages of the newer dashboard do not pause the session")
+check(DashboardLocation.destination(for: URL(string: "https://cursor.com/pricing")) == .dashboard, "An unknown page of Cursor's site is not mistaken for sign-in")
+check(DashboardLocation.destination(for: URL(string: "https://cursor.com/login")) == .signIn && DashboardLocation.destination(for: URL(string: "https://cursor.com/api/auth/login?x=1")) == .signIn, "Real sign-in pages still pause a hidden session")
 print("All quota and post-login navigation scenarios passed")
