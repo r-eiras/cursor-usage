@@ -25,6 +25,11 @@ enum MenuIconStyle: String, Codable, CaseIterable {
     case app, cursor
     var title: String { self == .app ? "Cursor Usage" : "Cursor" }
 }
+// What the menu bar icon's color follows: nothing, the share of the cycle used, or the share of today's allowance used.
+enum IconColorBasis: String, Codable, CaseIterable {
+    case off, cycle, day
+    var title: String { switch self { case .off: return L("Desligada", "Off"); case .cycle: return L("Pelo uso do ciclo", "By cycle usage"); case .day: return L("Pelo uso do dia", "By today's usage") } }
+}
 enum MenuOpenBehavior: String, Codable, CaseIterable {
     case hoverAndClick, clickOnly
     var title: String {
@@ -52,6 +57,7 @@ struct AppPreferences: Codable {
     private var storedNotifyModelRate: Bool?
     private var storedModelRatePercent: Int?
     private var storedMonitoredModels: [MonitoredModel]?
+    private var storedIconColorBasis: IconColorBasis?
     var menuIconStyle: MenuIconStyle { get { storedMenuIconStyle ?? .app } set { storedMenuIconStyle = newValue } }
     var showDetailedLabels: Bool { get { storedShowDetailedLabels ?? true } set { storedShowDetailedLabels = newValue } }
     var menuOpenBehavior: MenuOpenBehavior { get { storedMenuOpenBehavior ?? .hoverAndClick } set { storedMenuOpenBehavior = newValue } }
@@ -66,6 +72,7 @@ struct AppPreferences: Codable {
     var notifyModelRate: Bool { get { storedNotifyModelRate ?? true } set { storedNotifyModelRate = newValue } }
     var modelRatePercent: Int { get { storedModelRatePercent ?? 50 } set { storedModelRatePercent = min(300, max(10, newValue)) } }
     var monitoredModels: [MonitoredModel] { get { storedMonitoredModels ?? [] } set { storedMonitoredModels = newValue } }
+    var iconColorBasis: IconColorBasis { get { storedIconColorBasis ?? .cycle } set { storedIconColorBasis = newValue } }
     var freshnessInterval: TimeInterval { max(600, syncInterval.seconds + 60) }
     var menuMode: MenuDisplayMode = .percentage
     var showIcon = true
@@ -129,6 +136,10 @@ struct MenuBarPresentation {
     let title: String
     let tooltip: String
     let fraction: Double?
+    // Share used, whatever the menu shows: a remaining amount must not turn the icon red while plenty is left.
+    var usedFraction: Double? = nil, usedTodayFraction: Double? = nil
+    // The fraction the icon color follows, or nil when coloring is off or the day's figures are not fresh.
+    func iconUsage(_ basis: IconColorBasis) -> Double? { basis == .cycle ? usedFraction : basis == .day ? usedTodayFraction : nil }
     static func money(_ micros: Double) -> String {
         let formatter = NumberFormatter(); formatter.locale = AppLanguage.locale; formatter.numberStyle = .currency; formatter.currencyCode = "USD"
         return formatter.string(from: NSNumber(value: micros / 1_000_000)) ?? "—"
@@ -166,7 +177,9 @@ struct MenuBarPresentation {
         case .iconsOnly: title = ""
         }
         return MenuBarPresentation(title: title,
-            tooltip: "\(L("Hoje", "Today")): \(dailyContent) \(qualifier)\n\(L("Cota diária calculada", "Calculated daily allowance")): \(freshDaily ? budget?.dailyLimitMicros.map(money) ?? "—" : "—")\n\(L("Ciclo da assinatura", "Subscription cycle")): \(amount) \(qualifier)\n\(percent) \(L("do limite do ciclo", "of the cycle limit")): \(denominator.map(money) ?? L("indisponível", "unavailable"))\n\(preferences.personalBudgetEnabled ? L("Referência: sua meta pessoal", "Reference: your personal goal") : L("Referência: cota oficial", "Reference: official quota"))", fraction: fraction)
+            tooltip: "\(L("Hoje", "Today")): \(dailyContent) \(qualifier)\n\(L("Cota diária calculada", "Calculated daily allowance")): \(freshDaily ? budget?.dailyLimitMicros.map(money) ?? "—" : "—")\n\(L("Ciclo da assinatura", "Subscription cycle")): \(amount) \(qualifier)\n\(percent) \(L("do limite do ciclo", "of the cycle limit")): \(denominator.map(money) ?? L("indisponível", "unavailable"))\n\(preferences.personalBudgetEnabled ? L("Referência: sua meta pessoal", "Reference: your personal goal") : L("Referência: cota oficial", "Reference: official quota"))", fraction: fraction,
+            usedFraction: cost.flatMap { cost in denominator.flatMap { $0 > 0 ? Double(cost) / $0 : nil } },
+            usedTodayFraction: freshDaily ? budget?.todaySpentMicros.flatMap { spent in budget?.dailyLimitMicros.flatMap { $0 > 0 ? Double(spent) / $0 : nil } } : nil)
     }
 }
 

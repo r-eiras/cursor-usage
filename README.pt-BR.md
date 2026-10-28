@@ -26,7 +26,7 @@ Se a página de login dessa janela não funcionar — por exemplo, sua conta Goo
 
 Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [Por que só este comando](#por-que-só-este-comando) traz o motivo, se você quiser.
 
-**Versão atual: 3.4.3 · build 19 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
+**Versão atual: 3.4.4 · build 20 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 
 | Você precisa de | Requisito |
 | --- | --- |
@@ -35,7 +35,7 @@ Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [P
 | Conta | Uma conta do Cursor com uso disponível no painel oficial. |
 | Conexão | Internet para entrar na conta e atualizar o consumo. |
 
-Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.4.3`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
+Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.4.4`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
 
 ### O app desaparece, ou nenhum ícone aparece
 
@@ -99,6 +99,8 @@ Este é um projeto independente, sem vínculo ou endosso da Anysphere.
 - Porcentagem, valor em US$ ou ambos, como consumo ou saldo restante.
 - Visualização **Detalhada** com hoje e ciclo, **Compacta** com o ciclo e **Somente logos**.
 - Ícone próprio de medidor ou logo do Cursor; abertura por clique ou hover.
+- O ícone da barra muda de cor conforme o uso: a cor normal da barra abaixo de 30%, amarelo até 60%, laranja até 90% e vermelho daí em diante. **Cor do ícone** acompanha o ciclo ou a cota do dia, ou pode ser desligada; ela usa o consumido mesmo quando o menu mostra o restante.
+- Notificações, Finder e o alternador de apps mostram o ícone de medidor do próprio app.
 - Resumo de gastos, requisições, tokens informados e ranking de modelos.
 - Períodos: hoje, semana corrente, últimos três ou sete dias e mês corrente. O padrão de uma instalação nova é o mês corrente.
 - Limite pessoal de gastos, avisos de ciclo/cota diária calculada, som opcional e aviso de renovação.
@@ -123,7 +125,7 @@ O período selecionado muda o relatório histórico. A cota do ciclo na barra co
 
 | Aba | Opções |
 | --- | --- |
-| **Barra** | Formato dos valores, consumo/saldo, densidade, hover/clique, ícone, rótulos Hoje/Ciclo e prévia. |
+| **Barra** | Formato dos valores, consumo/saldo, densidade, hover/clique, ícone, cor do ícone pelo ciclo ou pelo dia, rótulos Hoje/Ciclo e prévia. |
 | **Avisos** | Limite pessoal, porcentagem de aviso no ciclo e no diário calculado, sons, renovação e avisos por modelo com modelos monitorados. |
 | **App** | Sincronização, idioma, início com o Mac, Sobre e situação das atualizações. |
 
@@ -173,7 +175,7 @@ Não publique cookies, exports brutos, URLs de autenticação ou arquivos pessoa
 
 ## Build, testes e distribuição
 
-Versão atual: **3.4.3, build 19**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
+Versão atual: **3.4.4, build 20**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
 
 ```sh
 python3 build.py

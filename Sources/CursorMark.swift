@@ -5,8 +5,15 @@ import AppKit
     private static let sourceLogo: NSImage? = Bundle.main.url(forResource: "Cursor", withExtension: "png").flatMap { NSImage(contentsOf: $0) }
     // A dot in the accent color after the reading while an update is available.
     static let updateBadge = "●"
-    static func configure(_ button: NSButton, title: String, showsIcon: Bool, style: MenuIconStyle = .cursor, updateBadge: Bool = false) {
-        let icon = showsIcon ? (style == .app ? appImage() : image()) : nil
+    // The icon's color follows how much of the allowance or personal limit is used: the menu bar's own color
+    // below 30%, then yellow, orange from 60% and red from 90%.
+    static func usageColor(_ fraction: Double?) -> NSColor? {
+        guard let fraction, fraction >= 0.3 else { return nil }
+        return fraction < 0.6 ? .systemYellow : fraction < 0.9 ? .systemOrange : .systemRed
+    }
+    static func configure(_ button: NSButton, title: String, showsIcon: Bool, style: MenuIconStyle = .cursor, updateBadge: Bool = false, usage: Double? = nil) {
+        let base = showsIcon ? (style == .app ? appImage() : image()) : nil
+        let icon = base.map { base in usageColor(usage).map { tinted(base, $0, key: "\(style.rawValue)-\(usage.map { $0 < 0.6 ? 1 : $0 < 0.9 ? 2 : 3 } ?? 0)") } ?? base }
         if button.image !== icon { button.image = icon }
         if button.font == nil || button.font?.pointSize != 11 { button.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium) }
         if button.imagePosition != .imageLeading { button.imagePosition = .imageLeading }
@@ -18,6 +25,16 @@ import AppKit
             text.append(NSAttributedString(string: badge, attributes: [.font: NSFont.systemFont(ofSize: 8), .foregroundColor: NSColor.controlAccentColor, .baselineOffset: 2]))
             button.attributedTitle = text
         }
+    }
+
+    private static let tintedImages: NSCache<NSString, NSImage> = { let cache = NSCache<NSString, NSImage>(); cache.countLimit = 8; return cache }()
+    // One cached image per style and level, so the button keeps the same instance between readings.
+    private static func tinted(_ base: NSImage, _ color: NSColor, key: String) -> NSImage {
+        if let cached = tintedImages.object(forKey: key as NSString) { return cached }
+        let result = NSImage(size: base.size, flipped: false) { rect in
+            base.draw(in: rect); color.set(); rect.fill(using: .sourceAtop); return true
+        }
+        tintedImages.setObject(result, forKey: key as NSString); return result
     }
 
     private static let appImages: NSCache<NSNumber, NSImage> = { let cache = NSCache<NSNumber, NSImage>(); cache.countLimit = 8; return cache }()

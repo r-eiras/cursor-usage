@@ -61,6 +61,17 @@ MainActor.assumeIsolated {
         check(status.title == "$12.30 ●" && status.attributedTitle.attribute(.foregroundColor, at: dot.location, effectiveRange: nil) as? NSColor == .controlAccentColor, "An available update adds an accent dot after the menu bar reading")
         CursorMark.configure(status, title: "$12.30", showsIcon: false); check(status.title == "$12.30", "The dot goes away once the update is installed")
         CursorMark.configure(status, title: "", showsIcon: true, updateBadge: true); check(status.title == "●" && status.image != nil, "With only the icon, the dot follows it without a leading space")
+        check(CursorMark.usageColor(nil) == nil && CursorMark.usageColor(0.29) == nil && CursorMark.usageColor(0.3) == .systemYellow && CursorMark.usageColor(0.59) == .systemYellow
+              && CursorMark.usageColor(0.6) == .systemOrange && CursorMark.usageColor(0.89) == .systemOrange && CursorMark.usageColor(0.9) == .systemRed && CursorMark.usageColor(1.4) == .systemRed,
+              "The icon is plain below 30%, yellow to 60%, orange to 90% and red from there")
+        for style in MenuIconStyle.allCases {
+            let plain = style == .app ? CursorMark.appImage() : CursorMark.image()
+            CursorMark.configure(status, title: "$1", showsIcon: true, style: style, usage: 0.1); check(status.image === plain, "Under 30% the \(style) icon keeps its normal look")
+            CursorMark.configure(status, title: "$1", showsIcon: true, style: style, usage: 0.95); let red = status.image
+            check(red != nil && red !== plain && red?.isTemplate == false, "Near the limit the \(style) icon is drawn in color")
+            CursorMark.configure(status, title: "$1", showsIcon: true, style: style, usage: 0.97); check(status.image === red, "Readings at the same level reuse the same image")
+            CursorMark.configure(status, title: "$1", showsIcon: true, style: style, usage: 0.7); check(status.image !== red, "Crossing a level changes the color")
+        }
     }
     let pinned = OverlayScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 100)); pinned.scrollerStyle = .legacy
     check(pinned.scrollerStyle == .overlay, "Lists keep scrollers that fade out, even when macOS prefers visible ones")

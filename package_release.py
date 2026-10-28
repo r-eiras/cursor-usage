@@ -11,7 +11,7 @@ def validate_app_bundle(app):
     """Reject development files, local data and links from the user download."""
     allowed = {
         'Contents/Info.plist', 'Contents/MacOS/CursorUsage',
-        'Contents/Resources/Cursor.png', 'Contents/_CodeSignature/CodeResources',
+        'Contents/Resources/Cursor.png', 'Contents/Resources/AppIcon.icns', 'Contents/_CodeSignature/CodeResources',
     }
     actual = set()
     for path in app.rglob('*'):

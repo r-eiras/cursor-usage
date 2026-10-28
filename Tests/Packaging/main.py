@@ -14,7 +14,7 @@ class DistributionContentsTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.app = Path(self.temporary.name) / "Cursor Usage.app"
-        for name in ["Contents/Info.plist", "Contents/MacOS/CursorUsage", "Contents/Resources/Cursor.png", "Contents/_CodeSignature/CodeResources"]:
+        for name in ["Contents/Info.plist", "Contents/MacOS/CursorUsage", "Contents/Resources/Cursor.png", "Contents/Resources/AppIcon.icns", "Contents/_CodeSignature/CodeResources"]:
             file = self.app / name
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_bytes(b"fixture")

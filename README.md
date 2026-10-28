@@ -26,7 +26,7 @@ If the sign-in page in that window doesn't work — for example, your Google acc
 
 That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
-**Current version: 3.4.3 · build 19 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
+**Current version: 3.4.4 · build 20 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
 | --- | --- |
@@ -35,7 +35,7 @@ That command is the way to install the app, and the same command updates it late
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.4.3`. Developers can build from source instead; see [Build and test](#build-and-test).
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.4.4`. Developers can build from source instead; see [Build and test](#build-and-test).
 
 ### The app vanishes, or no icon appears
 
@@ -99,6 +99,8 @@ This is an independent project. It is not affiliated with or endorsed by Anysphe
 - Shows percentages, US-dollar amounts, or both, as consumed or remaining values.
 - Offers three menu-bar layouts: **Detailed** (today and cycle), **Compact** (cycle), and **Icons only**.
 - Lets you choose the app's gauge icon or the original Cursor logo, and open the card by click or hover.
+- Colors the menu bar icon by how much is used: the bar's own color below 30%, yellow up to 60%, orange up to 90% and red from there. **Icon color** follows the cycle or today's allowance, or can be turned off; it uses the share consumed even when the menu shows what remains.
+- Notifications, Finder and the app switcher show the app's own gauge icon.
 - Displays spending, request counts, reported tokens, and model rankings in the usage card.
 - Provides reports for today, this week, the last three or seven days, and the current calendar month. New installations start with the current month.
 - Supports a personal spending limit, cycle/daily threshold alerts, renewal alerts, and optional notification sounds.
@@ -125,7 +127,7 @@ The period selector changes the historical report. It does not change the subscr
 
 | Tab | Controls |
 | --- | --- |
-| **Menu bar** | Number format, consumed/remaining values, layout, hover/click behavior, icon, optional Today/Cycle labels, and a native preview. |
+| **Menu bar** | Number format, consumed/remaining values, layout, hover/click behavior, icon, icon color by cycle or daily usage, optional Today/Cycle labels, and a native preview. |
 | **Alerts** | Personal spending limit, cycle and calculated-daily thresholds, sounds, renewal alerts, and per-model alerts with monitored models. |
 | **App** | Refresh interval, language, start at login, About, and update status. |
 
@@ -180,7 +182,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.4.3, build 19**.
+Current version: **3.4.4, build 20**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 

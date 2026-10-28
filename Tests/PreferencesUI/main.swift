@@ -53,7 +53,7 @@ MainActor.assumeIsolated {
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         let views = descendants(content)
         let pickers = views.compactMap { $0 as? NSPopUpButton }
-        check(pickers.count == 7, "All menu, sync and language selectors are present")
+        check(pickers.count == 8, "All menu, icon color, sync and language selectors are present")
         let mode = pickers[0], basis = pickers[1], density = pickers[2]
         let navigation = views.compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 3 }!
         for index in 0..<3 {
@@ -72,7 +72,7 @@ MainActor.assumeIsolated {
         change(density, 1)
         check(mode.isEnabled && basis.isEnabled, "Returning to text restores the controls")
         change(mode, 2); change(basis, 0)
-        change(pickers[3], 1); change(pickers[4], 1); change(pickers[5], 2); change(pickers[6], 2)
+        change(pickers[3], 1); change(pickers[4], 1); change(pickers[5], 2); change(pickers[6], 2); change(pickers[7], 2)
         showIcon.performClick(nil)
         saved = nil; save.performClick(nil)
         check(saved?.menuIconStyle == .cursor, "The Cursor icon choice is saved independently of the display mode")
@@ -80,6 +80,7 @@ MainActor.assumeIsolated {
         check(saved?.cursorUsageBasis == .used && saved?.syncInterval == .tenMinutes && saved?.language == .english, "Save commits basis, sync and language")
         check(saved?.menuOpenBehavior == .clickOnly, "Save commits the explicit click-only menu choice")
         check(saved?.showIcon == false, "Save commits icon visibility")
+        check(saved?.iconColorBasis == .day, "Save commits the icon color basis")
         panel.present(saved!); check(showIcon.state == .off, "Reopening restores icon visibility")
         saved = nil; change(mode, 0)
         panel.suspendForMenuBar()
@@ -102,6 +103,9 @@ MainActor.assumeIsolated {
         check(preview.image?.isTemplate == true, "The app icon adapts to the native menu bar contrast")
         change(pickers[4], 1); check(preview.image === CursorMark.image(), "The preview uses the selected Cursor logo")
         change(pickers[4], 0); check(preview.image === CursorMark.appImage(), "The preview uses the app's own quota mark")
+        panel.onPreviewUsage = { _ in 0.95 }; panel.updateReadings()
+        check(preview.image != nil && preview.image?.isTemplate == false, "The preview shows the icon in its usage color")
+        panel.onPreviewUsage = nil; panel.updateReadings()
         showIcon.performClick(nil); check(preview.image == nil, "Hiding the icon updates the preview immediately")
         let labels = boxes.first { $0.title == L("Mostrar rótulos Hoje e Ciclo", "Show Today and Cycle labels") }!
         check(labels.isEnabled, "Detailed display offers optional labels")

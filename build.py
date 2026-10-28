@@ -67,8 +67,16 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     resources = app/'Contents/Resources'
     resources.mkdir(parents=True,exist_ok=True)
     shutil.copy2(root/'Assets/Cursor.png',resources/'Cursor.png')
+    # The app icon is what macOS shows on notifications and in Finder; built from one 1024 px PNG.
+    iconset = work/'AppIcon.iconset'
+    iconset.mkdir(exist_ok=True)
+    for points in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            name = f'icon_{points}x{points}' + ('@2x' if scale == 2 else '') + '.png'
+            run('sips','-z',str(points*scale),str(points*scale),str(root/'Assets/AppIcon.png'),'--out',str(iconset/name))
+    run('iconutil','-c','icns',str(iconset),'-o',str(resources/'AppIcon.icns'))
     with (app/'Contents/Info.plist').open('wb') as output:
-        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.4.3','CFBundleVersion':'19','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
+        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleIconFile':'AppIcon','CFBundleShortVersionString':'3.4.4','CFBundleVersion':'20','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
     run('codesign','--force','--sign','-',str(app))
     # Replace the bundle atomically; never overwrite a running signed executable.
     destination = root/'Cursor Usage.app'

@@ -424,7 +424,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         recoverStatusItemIfNeeded()
         if !status.isVisible { status.isVisible = true }
         if let button = status.button {
-            CursorMark.configure(button, title: presentation.title, showsIcon: preferences.showIcon || preferences.menuBarDensity == .iconsOnly, style: preferences.menuIconStyle, updateBadge: availableUpdate != nil)
+            CursorMark.configure(button, title: presentation.title, showsIcon: preferences.showIcon || preferences.menuBarDensity == .iconsOnly, style: preferences.menuIconStyle, updateBadge: availableUpdate != nil, usage: presentation.iconUsage(preferences.iconColorBasis))
             let width = ceil(button.attributedTitle.size().width) + (button.image == nil ? 14 : 34)
             if status.length != max(24, width) { status.length = max(24, width) }
             // The badge is the one update signal that a notification utility or Focus cannot take away.
@@ -631,6 +631,10 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             panel.onPreview = { [weak self] value in
                 guard let self else { return "—" }
                 return MenuBarPresentation.make(preferences: value, quota: self.history.last, dataset: self.dataset, now: Date()).title
+            }
+            panel.onPreviewUsage = { [weak self] value in
+                guard let self else { return nil }
+                return MenuBarPresentation.make(preferences: value, quota: self.history.last, dataset: self.dataset, now: Date()).iconUsage(value.iconColorBasis)
             }
             panel.onSave = { [weak self] value in
                 guard let self, let data = try? JSONEncoder().encode(value) else { return false }

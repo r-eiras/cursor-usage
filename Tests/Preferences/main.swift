@@ -73,6 +73,10 @@ print("PASS: synchronization options, persistence and backwards compatibility")
 var remaining = AppPreferences(); remaining.cursorUsageBasis = .remaining
 let remainingBar = MenuBarPresentation.make(preferences: remaining, quota: quota, dataset: data, now: now, calendar: calendar)
 check(remainingBar.title.contains("75%"), "Remaining usage complements the Cursor cycle")
+check(abs((remainingBar.usedFraction ?? 0) - 0.25) < 0.0001 && remainingBar.iconUsage(.cycle) == remainingBar.usedFraction, "The icon color follows the share used even when the menu shows what remains")
+check(remainingBar.iconUsage(.off) == nil && AppPreferences().iconColorBasis == .cycle, "Icon color starts on the cycle and can be turned off")
+let colored = MenuBarPresentation(title: "", tooltip: "", fraction: nil, usedFraction: 0.8, usedTodayFraction: 0.4)
+check(colored.iconUsage(.cycle) == 0.8 && colored.iconUsage(.day) == 0.4, "The color basis picks the cycle or today's share")
 remaining.menuMode = .amount
 check(MenuBarPresentation.make(preferences: remaining, quota: quota, dataset: data, now: now, calendar: calendar).title.contains("750,00"), "Remaining money follows the same cycle")
 var compact = remaining; compact.menuBarDensity = .iconsOnly
