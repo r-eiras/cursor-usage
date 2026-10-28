@@ -49,8 +49,9 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     test('BrowserSignIn',['BrowserSignIn.swift'])
     test('AppUpdater',['ReleaseUpdates.swift','AppUpdater.swift'])
     test('ModelAlerts',['Usage.swift','Analytics.swift','Preferences.swift','ModelAlerts.swift'])
+    test('NotificationRoutes',['NotificationAdvice.swift'],['UserNotifications'])
     if args.ui_tests:
-        test('PreferencesUI',['Usage.swift','Analytics.swift','Preferences.swift','LoginItemManager.swift','CursorAlertControls.swift','ModelAlertControls.swift','CursorMark.swift','SettingsStyle.swift','PreferencesPanel.swift'],['AppKit','ServiceManagement'])
+        test('PreferencesUI',['Usage.swift','Analytics.swift','Preferences.swift','LoginItemManager.swift','CursorAlertControls.swift','ModelAlertControls.swift','CursorMark.swift','SettingsStyle.swift','NotificationAdvice.swift','PreferencesPanel.swift'],['AppKit','ServiceManagement','UserNotifications'])
         test('SessionCookies',[],['AppKit','WebKit'])
         test('StatusMenu',['StatusMenu.swift','StatusItemPlacement.swift'],['AppKit'])
         test('BrowserButton',['BrowserSignInButton.swift'],['AppKit'])
@@ -67,7 +68,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     resources.mkdir(parents=True,exist_ok=True)
     shutil.copy2(root/'Assets/Cursor.png',resources/'Cursor.png')
     with (app/'Contents/Info.plist').open('wb') as output:
-        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.4.0','CFBundleVersion':'16','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
+        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.4.1','CFBundleVersion':'17','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
     run('codesign','--force','--sign','-',str(app))
     # Replace the bundle atomically; never overwrite a running signed executable.
     destination = root/'Cursor Usage.app'

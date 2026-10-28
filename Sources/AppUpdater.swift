@@ -46,6 +46,11 @@ struct AppUpdater {
         ["/bin/sh", "-c", "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.2; done; \(opener) \"$0\"", app.path]
     }
 
+    // The version a clicked update notice installs: its own, when newer than the running app.
+    static func noticeTarget(_ version: String?, installed: String) -> String? {
+        guard let version, let target = ReleaseVersion(version), let current = ReleaseVersion(installed), target > current else { return nil }
+        return version
+    }
     // Notices about the installed version, or an older one, no longer offer anything.
     static func staleUpdateNotices(_ identifiers: [String], installed: String) -> [String] {
         guard let current = ReleaseVersion(installed) else { return [] }

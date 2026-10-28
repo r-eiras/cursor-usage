@@ -26,7 +26,7 @@ Se a página de login dessa janela não funcionar — por exemplo, sua conta Goo
 
 Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [Por que só este comando](#por-que-só-este-comando) traz o motivo, se você quiser.
 
-**Versão atual: 3.4.0 · build 16 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
+**Versão atual: 3.4.1 · build 17 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 
 | Você precisa de | Requisito |
 | --- | --- |
@@ -35,7 +35,7 @@ Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [P
 | Conta | Uma conta do Cursor com uso disponível no painel oficial. |
 | Conexão | Internet para entrar na conta e atualizar o consumo. |
 
-Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.4.0`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
+Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.4.1`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
 
 ### O app desaparece, ou nenhum ícone aparece
 
@@ -74,7 +74,7 @@ A janela continua sendo a primeira opção, porque depende só das páginas púb
 
 ### Como atualizar
 
-O app procura uma versão nova uma vez por dia. Quando sai uma, ele manda uma notificação e coloca **Atualizar para …** no topo do menu do botão direito. Escolha **Atualizar agora**: o app baixa a versão, confere contra os checksums e a assinatura do release, se substitui e reabre em alguns segundos. Suas preferências e a sessão da conta continuam como estavam. **Configurações → App → Verificar atualizações** faz o mesmo na hora.
+O app procura uma versão nova uma vez por dia. Quando sai uma, ele manda uma notificação e mostra **Atualizar para …** no rodapé do cartão e no topo do menu do botão direito; os dois ficam até você atualizar. Clique na notificação ou em qualquer um deles: o app baixa a versão, confere contra os checksums e a assinatura do release, se substitui e reabre em alguns segundos. Suas preferências e a sessão da conta continuam como estavam. **Configurações → App → Verificar atualizações** faz o mesmo na hora.
 
 A primeira notificação pede permissão ao macOS uma vez, mesmo que você nunca tenha ligado os avisos de consumo. Se recusar, o item do menu continua oferecendo a atualização.
 
@@ -131,6 +131,10 @@ O período selecionado muda o relatório histórico. A cota do ciclo na barra co
 
 Os avisos de consumo começam desligados. Os avisos por modelo começam ligados, porque não precisam de configuração; o primeiro pede permissão de notificação ao macOS uma vez. O app deve estar aberto, e o modo Foco pode afetar a entrega. A mesma leitura não gera avisos repetidos para o mesmo limite. Sem limite pessoal, o aviso do ciclo usa a cota do Cursor.
 
+Clicar num aviso abre o lugar certo: o de atualização instala a versão, o de meta ou renovação abre o orçamento no cartão, o de modelo abre a lista de modelos, e **Monitorar este modelo** abre as Configurações com o modelo na lista.
+
+Quanto tempo o aviso fica na tela é um ajuste do macOS que o app não consegue mudar. Banners **Temporários** somem em alguns segundos e vão para a Central de Notificações; os **Persistentes** ficam até você fechar. **Configurações → Avisos** mostra qual estilo o macOS usa para o app e tem **Ajustar notificações no macOS…**, que abre essa página. Utilitários que levam as notificações para outro lugar, como o Vorssaint com as notificações no notch apagando as nativas, tiram os avisos da Central cerca de um segundo depois de aparecerem; desligue essa opção se os avisos deste app sumirem.
+
 ### Avisos por modelo
 
 A cota do Cursor é uma só para todos os modelos, então estes avisos mostram para onde o dinheiro vai, e não um limite do Cursor.
@@ -169,7 +173,7 @@ Não publique cookies, exports brutos, URLs de autenticação ou arquivos pessoa
 
 ## Build, testes e distribuição
 
-Versão atual: **3.4.0, build 16**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
+Versão atual: **3.4.1, build 17**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
 
 ```sh
 python3 build.py

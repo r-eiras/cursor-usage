@@ -42,6 +42,20 @@ MainActor.assumeIsolated {
     let short = detail.show(expensive, share: 0.9)
     let long = detail.show(ModelUsage(model: String(repeating: "very-long-model-name-", count: 4), costMicros: 1, events: 1), share: 0.1)
     check(short.width == ModelDetailView.width && long.height > short.height, "A long name wraps inside the detail instead of being cut")
+    for language in [AppLanguage.portuguese, .english] {
+        AppLanguage.current = language
+        let card = QuotaCard(frame: NSRect(origin: .zero, size: QuotaCard.size))
+        let button = card.subviews.compactMap { $0 as? NSButton }.first { $0.identifier?.rawValue == "update" }!
+        check(button.isHidden, "No update button while the app is current")
+        var clicked = 0; card.onUpdate = { clicked += 1 }
+        card.setUpdate("9.1.0", installing: false)
+        check(!button.isHidden && button.isEnabled && button.title == L("Atualizar para 9.1.0", "Update to 9.1.0"), "An available update stays visible in the card")
+        button.performClick(nil); check(clicked == 1, "The card button starts the update")
+        card.setUpdate("9.1.0", installing: true)
+        check(!button.isEnabled && button.title == L("Atualizando para 9.1.0…", "Updating to 9.1.0…"), "While installing, the button shows progress and cannot start a second update")
+        check(button.frame.maxX <= 186 && button.frame.minY >= 356, "The button takes the footer text's place, clear of the toolbar icons")
+        card.setUpdate(nil, installing: false); check(button.isHidden, "Once installed, the button goes away")
+    }
     let pinned = OverlayScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 100)); pinned.scrollerStyle = .legacy
     check(pinned.scrollerStyle == .overlay, "Lists keep scrollers that fade out, even when macOS prefers visible ones")
     print("PASS: model sorting controls, current month, removal of the custom period, model detail and fading scrollers")

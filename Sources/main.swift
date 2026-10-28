@@ -74,8 +74,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         message = isSignedOut ? L("Conta desconectada", "Account disconnected") : QuotaMessages.waiting("Cursor"); analyticsMessage = isSignedOut ? L("Conecte sua conta para acompanhar o consumo.", "Connect your account to track usage.") : L("Carregando histórico…", "Loading history…")
         notifications = BudgetNotifications(folder: folder)
         notifications.onStatus = { [weak self] value in self?.notificationStatus = value; self?.preferencesPanel?.setStatus(value) }
-        notifications.onUpdateRequested = { [weak self] install in if install { self?.installAvailableUpdate() } else { self?.checkForUpdates() } }
-        notifications.onMonitorModel = { [weak self] model in self?.showPreferences(); self?.preferencesPanel?.monitor(model) }
+        notifications.onOpen = { [weak self] route in self?.open(route) }
         // Leftovers of the update that installed this version: its download folder and its notice.
         try? FileManager.default.removeItem(at: AppUpdater.stagingFolder()); notifications.clearUpdateNotices(installed: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")
         let controller = NSViewController(); controller.view = card
@@ -89,6 +88,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         card.onConnect = { [weak self] in self?.showDashboard() }; card.onRefresh = { [weak self] in self?.refresh() }
         card.onQuit = { NSApp.terminate(nil) }; card.onPeriod = { [weak self] in self?.selectPeriod($0) }
         card.onPreferences = { [weak self] in self?.showPreferences() }
+        card.onUpdate = { [weak self] in self?.installAvailableUpdate() }
         exporter.onDataset = { [weak self] data in
             guard let self else { return }
             self.dataset = data; self.exportInFlight = false; self.historySettled = true
@@ -430,6 +430,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             button.toolTip = nil; button.setAccessibilityLabel(ProjectLinks.name)
         }
         if forceCard || popover.isShown {
+            card.setUpdate(availableUpdate, installing: installingUpdate)
             card.configure(preferences: preferences, budget: budget)
             card.update(snapshot: latest, dataset: dataset, selection: selection, stale: stale, message: message, analyticsMessage: analyticsMessage)
         }
@@ -543,15 +544,34 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         Task { [weak self] in
             guard case .available(let latest, _) = await ReleaseChecker.check(installedVersion: version), let self else { return }
-            self.availableUpdate = latest; self.notifications.announceUpdate(version: latest)
+            self.availableUpdate = latest; self.notifications.announceUpdate(version: latest); self.render()
         }
     }
     @objc private func installAvailableUpdate() { if let availableUpdate { installUpdate(availableUpdate) } else { checkForUpdates() } }
+    private func open(_ route: NotificationRoute) {
+        switch route {
+        case .update(let version): installFromNotice(version)
+        case .monitor(let model): showPreferences(); preferencesPanel?.monitor(model)
+        case .goal: showCard { $0.showBudget() }
+        case .models: showCard { $0.showModels() }
+        }
+    }
+    // Opens the card on the tab a notice is about.
+    private func showCard(_ select: (QuotaCard) -> Void) {
+        guard let button = status.button else { return }
+        closePopovers(); select(card); render(forceCard: true)
+        NSApp.activate(ignoringOtherApps: true); popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    }
+    // A click on the notice installs, as its text says. An older notice names its own version, which still applies while newer.
+    private func installFromNotice(_ version: String?) {
+        let installed = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        if let target = AppUpdater.noticeTarget(version, installed: installed) { installUpdate(target) } else { installAvailableUpdate() }
+    }
     // Downloads and verifies the release, swaps the bundle and reopens the app; any failure keeps this version running.
     private func installUpdate(_ version: String) {
         guard !installingUpdate else { return }
         installingUpdate = true; preferencesPanel?.setUpdateChecking(true, installing: true)
-        message = L("Atualizando para \(version)…", "Updating to \(version)…"); render()
+        message = L("Atualizando para \(version)…", "Updating to \(version)…"); availableUpdate = version; render(forceCard: true)
         let installed = Bundle.main.bundleURL
         Task { [weak self] in
             var folder: URL?

@@ -27,6 +27,7 @@ import AppKit
     private let alerts = CursorAlertControls()
     private let models = ModelAlertControls()
     private var alertsSection: NSView?
+    private let notificationSettings = NSButton(title: L("Ajustar notificações no macOS…", "Notification settings in macOS…"), target: nil, action: nil)
     private let scroll = OverlayScrollView()
     private var sections: [NSView] = []
     private var original = AppPreferences()
@@ -81,6 +82,7 @@ import AppKit
         previewExplanation.frame = NSRect(x: 16, y: 370, width: 452, height: 30); previewExplanation.font = .systemFont(ofSize: 11); previewExplanation.textColor = .secondaryLabelColor; bar.addSubview(previewExplanation)
         alerts.frame.origin = NSPoint(x: SettingsStyle.inset, y: 16); alerts.onChange = { [weak self] in self?.changed() }; alertsSection.addSubview(alerts)
         models.onChange = { [weak self] in self?.changed() }; models.onResize = { [weak self] in self?.relayoutAlerts() }; alertsSection.addSubview(models)
+        notificationSettings.bezelStyle = .rounded; notificationSettings.font = .systemFont(ofSize: 12); notificationSettings.target = self; notificationSettings.action = #selector(openNotificationSettings); alertsSection.addSubview(notificationSettings)
         status.frame = NSRect(x: SettingsStyle.inset, y: 438, width: 452, height: 34); status.font = .systemFont(ofSize: 11); status.textColor = .secondaryLabelColor; alertsSection.addSubview(status)
         SettingsStyle.header(L("Conexão", "Connection"), in: app, y: 14)
         SettingsStyle.separator(in: app, y: 126)
@@ -110,7 +112,8 @@ import AppKit
         guard let section = alertsSection else { return }
         models.frame.origin = NSPoint(x: SettingsStyle.inset, y: alerts.frame.maxY + 16)
         status.frame = NSRect(x: SettingsStyle.inset, y: models.frame.maxY + 8, width: 452, height: 34)
-        section.frame.size.height = status.frame.maxY + 12
+        notificationSettings.sizeToFit(); notificationSettings.frame = NSRect(x: SettingsStyle.inset, y: status.frame.maxY + 4, width: notificationSettings.frame.width + 16, height: 28)
+        section.frame.size.height = notificationSettings.frame.maxY + 14
         if tabs.selectedSegment == 1, let document = scroll.documentView { document.frame.size.height = 140 + section.frame.height + 20 }
     }
     // Opens the alerts tab with a model already on the monitored list, ready for its limits.
@@ -197,6 +200,7 @@ import AppKit
     @objc private func startupChanged() { do { try onStartupChange?(startup.state != .off); refreshStartup() } catch { refreshStartup(); startupDescription.stringValue = LoginItemManager.failureMessage(error, state: startupState?() ?? .unavailable) } }
     @objc private func openStartupSettings() { onStartupSettings?() }
     @objc private func save() { guard let value = draft() else { tabs.selectedSegment = 1; selectTab(); setStatus(L("Informe uma meta válida, um aviso diário de 1% a 100% e limites de modelo maiores que zero.", "Enter a valid goal, a daily alert from 1% to 100% and model limits above zero.")); return }; guard onSave?(value) == true else { return }; suspendedForMenuBar = false; window?.orderOut(nil) }
+    @objc private func openNotificationSettings() { NSWorkspace.shared.open(NotificationAdvice.settingsURL) }
     @objc private func cancel() { suspendedForMenuBar = false; window?.orderOut(nil) }
 }
 @MainActor private final class SettingsContent: NSView { override var isFlipped: Bool { true } }

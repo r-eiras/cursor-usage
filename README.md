@@ -26,7 +26,7 @@ If the sign-in page in that window doesn't work — for example, your Google acc
 
 That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
-**Current version: 3.4.0 · build 16 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
+**Current version: 3.4.1 · build 17 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
 | --- | --- |
@@ -35,7 +35,7 @@ That command is the way to install the app, and the same command updates it late
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.4.0`. Developers can build from source instead; see [Build and test](#build-and-test).
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.4.1`. Developers can build from source instead; see [Build and test](#build-and-test).
 
 ### The app vanishes, or no icon appears
 
@@ -74,7 +74,7 @@ The window stays the first option, because it relies only on Cursor's public pag
 
 ### Update
 
-The app checks for a new version once a day. When one is out, it sends a notification and adds **Update to …** at the top of the right-click menu. Choose **Update now**: the app downloads the release, checks it against the release's checksums and its signature, replaces itself and reopens in a few seconds. Your preferences and account session stay as they were. **Settings → App → Check for Updates** does the same on demand.
+The app checks for a new version once a day. When one is out, it sends a notification and shows **Update to …** in the card's footer and at the top of the right-click menu; both stay until you update. Click the notification, or either of those: the app downloads the release, checks it against the release's checksums and its signature, replaces itself and reopens in a few seconds. Your preferences and account session stay as they were. **Settings → App → Check for Updates** does the same on demand.
 
 The first notification asks macOS for permission once, even if you never turned on usage alerts. If you decline, the menu item still offers the update.
 
@@ -133,6 +133,10 @@ The period selector changes the historical report. It does not change the subscr
 
 Usage alerts start disabled. Per-model alerts start on, because they need no setup; the first one asks macOS for notification permission once. Notifications require the app to be open, and Focus settings can affect delivery. Repeated readings do not repeatedly notify for the same threshold. A personal limit is optional; without it, cycle alerts use the Cursor allowance.
 
+Clicking a notice opens where it belongs: an update notice installs the update, a goal or renewal notice opens the card's budget, a model notice opens the model list, and **Monitor this model** opens Settings with that model listed.
+
+How long a notice stays on screen is a macOS setting the app cannot change. **Temporary** banners leave after a few seconds and go to Notification Center; **Persistent** ones stay until you close them. **Settings → Alerts** shows which style macOS is using for the app and has **Notification settings in macOS…**, which opens that page. Utilities that move notifications elsewhere, such as Vorssaint with notch notifications set to dismiss the native ones, remove them from Notification Center about a second after they appear; turn that option off if notices from this app vanish.
+
 ### Per-model alerts
 
 Your Cursor allowance is shared by every model, so these alerts are about where the money goes, not about a Cursor limit.
@@ -176,7 +180,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.4.0, build 16**.
+Current version: **3.4.1, build 17**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 

@@ -119,6 +119,7 @@ import AppKit
     static let size = NSSize(width: 320, height: 396)
     var onConnect: (() -> Void)?; var onRefresh: (() -> Void)?; var onQuit: (() -> Void)?
     var onPeriod: ((UsagePeriod) -> Void)?; var onPreferences: (() -> Void)?
+    var onUpdate: (() -> Void)?
     var isPreview = false
     private var snapshot: UsageSnapshot?; private var dataset: UsageDataset?; private var report: AnalyticsReport?
     private var selection = PeriodSelection(); private var stale = false
@@ -133,6 +134,8 @@ import AppKit
     private var modelSignature = ""
     private var toolButtons: [NSButton] = []
     private let connect = NSButton(title: "", target: nil, action: nil)
+    // Stays in the footer until the update is installed, so missing the notification costs nothing.
+    private let updateButton = NSButton(title: "", target: nil, action: nil)
     override var isFlipped: Bool { true }
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect); appearance = NSAppearance(named: .darkAqua); wantsLayer = true
@@ -152,6 +155,10 @@ import AppKit
         connect.target = self; connect.action = #selector(connectAction)
         connect.identifier = NSUserInterfaceItemIdentifier("connect"); connect.frame = NSRect(x: 194, y: 106, width: 113, height: 24)
         connect.isBordered = false; connect.font = .systemFont(ofSize: 10, weight: .medium); connect.contentTintColor = QuotaStyle.mint; addSubview(connect)
+        updateButton.identifier = NSUserInterfaceItemIdentifier("update"); updateButton.frame = NSRect(x: 12, y: 363, width: 170, height: 25)
+        updateButton.isBordered = false; updateButton.font = .systemFont(ofSize: 11, weight: .semibold); updateButton.contentTintColor = QuotaStyle.mint
+        updateButton.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil); updateButton.imagePosition = .imageLeading
+        updateButton.alignment = .left; updateButton.target = self; updateButton.action = #selector(updateAction); updateButton.isHidden = true; addSubview(updateButton)
         let mark = NSImageView(frame: NSRect(x: 18, y: 16, width: 18, height: 18)); mark.image = CursorMark.appImage(size: 18, template: false); addSubview(mark)
         localize()
         refreshVisibility()
@@ -170,6 +177,12 @@ import AppKit
     // Both languages, so a message written before a language change is still recognized.
     static let syncedPrefixes = ["Histórico sincronizado", "History synced"]
     @objc private func preferencesAction() { onPreferences?() }
+    @objc private func updateAction() { onUpdate?() }
+    func setUpdate(_ version: String?, installing: Bool) {
+        updateButton.isHidden = version == nil; updateButton.isEnabled = !installing
+        if let version { updateButton.title = installing ? L("Atualizando para \(version)…", "Updating to \(version)…") : L("Atualizar para \(version)", "Update to \(version)") }
+        updateButton.setAccessibilityLabel(updateButton.title); needsDisplay = true
+    }
     @objc private func connectAction() { onConnect?() }; @objc private func refreshAction() { onRefresh?() }; @objc private func quitAction() { onQuit?() }
     @objc private func periodChanged() {
         let period = UsagePeriod.allCases[periodPicker.indexOfSelectedItem]
@@ -243,7 +256,7 @@ import AppKit
         else if !QuotaCard.syncedPrefixes.contains(where: { analyticsMessage.hasPrefix($0) }) { footer = analyticsMessage }
         else if let dataset, report != nil { let f = DateFormatter(); f.dateFormat = "HH:mm"; footer = "\(stale ? L("Leitura anterior", "Previous reading") : L("Atualizado", "Updated")) \(f.string(from: dataset.fetchedAt))" }
         else { footer = analyticsMessage }
-        text(footer, y: 370, width: 169, size: 9, color: QuotaStyle.muted)
+        if updateButton.isHidden { text(footer, y: 370, width: 169, size: 9, color: QuotaStyle.muted) }
     }
     private func drawBudget() {
         guard let budget else { text(L("Sincronize a conta para calcular a meta.", "Sync the account to calculate the goal."), y: 200, size: 11, color: QuotaStyle.muted); return }

@@ -10,10 +10,10 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
     private var checking = false
     private var policyGeneration = 0
     var onStatus: ((String) -> Void)?
-    // True when the user chose "Update now" on the notification rather than opening it.
-    var onUpdateRequested: ((Bool) -> Void)?
-    var onMonitorModel: ((String) -> Void)?
-    nonisolated static let updateCategory = "update", installAction = "install", newModelCategory = "model-new", monitorAction = "monitor"
+    // A click on any notice, routed to what it is about: an update installs, a new model opens its settings, others open the card.
+    var onOpen: ((NotificationRoute) -> Void)?
+    nonisolated static let updateCategory = NotificationRoute.updateCategory, installAction = NotificationRoute.installAction
+    nonisolated static let newModelCategory = NotificationRoute.newModelCategory, monitorAction = NotificationRoute.monitorAction
 
     init(folder: URL) {
         ledgerURL = folder.appendingPathComponent("alert-history.json")
@@ -41,15 +41,9 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
         center.removeAllPendingNotificationRequests(); center.removeAllDeliveredNotifications()
     }
     func readPermission() {
-        center.getNotificationSettings { [weak self] settings in
-            let status = settings.authorizationStatus
-            Task { @MainActor in
-                switch status {
-                case .authorized, .provisional: self?.onStatus?(L("Permissão do macOS disponível; os avisos seguem suas escolhas.", "macOS permission granted; alerts follow your choices."))
-                case .denied: self?.onStatus?(L("Notificações bloqueadas no macOS. Ative-as nos Ajustes do Sistema.", "Notifications blocked in macOS. Turn them on in System Settings."))
-                default: self?.onStatus?(L("A permissão do macOS será solicitada somente se você ativar um aviso e salvar.", "macOS asks for permission only if you turn on an alert and save."))
-                }
-            }
+        Task { @MainActor in
+            let settings = await self.center.notificationSettings()
+            self.onStatus?(NotificationAdvice.message(authorization: settings.authorizationStatus, style: settings.alertStyle))
         }
     }
     func evaluate(_ assessment: BudgetAssessment?, preferences: AppPreferences, quotaFresh: Bool) {
@@ -79,9 +73,9 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
             var status = await self.center.notificationSettings().authorizationStatus
             if status == .notDetermined { status = ((try? await self.center.requestAuthorization(options: [.alert])) ?? false) ? .authorized : .denied }
             guard status == .authorized || status == .provisional else { return }
-            let content = UNMutableNotificationContent(); content.categoryIdentifier = Self.updateCategory
+            let content = UNMutableNotificationContent(); content.categoryIdentifier = Self.updateCategory; content.userInfo = ["version": version]; content.threadIdentifier = "update"
             content.title = L("Cursor Usage \(version) disponível", "Cursor Usage \(version) is available")
-            content.body = L("Atualize com um clique. O app reabre sozinho em alguns segundos.", "Update with one click. The app reopens by itself in a few seconds.")
+            content.body = L("Clique para atualizar. O app reabre sozinho em alguns segundos.", "Click to update. The app reopens by itself in a few seconds.")
             do { try await self.center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil)) } catch { return }
             self.delivered[id] = Date()
             if let data = try? JSONEncoder().encode(self.delivered) { try? data.write(to: self.ledgerURL, options: .atomic) }
@@ -101,7 +95,8 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
             for alert in due {
                 let content = UNMutableNotificationContent(); content.title = alert.title; content.body = alert.body
                 if sound { content.sound = .default }
-                if alert.kind == .newModel { content.categoryIdentifier = Self.newModelCategory; content.userInfo = ["model": String(alert.id.dropFirst("model-new:".count))] }
+                content.threadIdentifier = "models"; content.userInfo = ["kind": "models"]
+                if alert.kind == .newModel { content.categoryIdentifier = Self.newModelCategory; content.userInfo = ["kind": "models", "model": String(alert.id.dropFirst("model-new:".count))] }
                 do { try await self.center.add(UNNotificationRequest(identifier: alert.id, content: content, trigger: nil)) } catch { continue }
                 self.delivered[alert.id] = Date()
             }
@@ -131,6 +126,7 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
                 for alert in alerts where !self.pending.contains(alert.id) && self.delivered[alert.id] == nil {
                     self.pending.insert(alert.id)
                     let content = UNMutableNotificationContent(); content.title = alert.title; content.body = alert.body
+                    content.threadIdentifier = "goal"; content.userInfo = ["kind": "goal"]
                     if sound { content.sound = .default }
                     let request = UNNotificationRequest(identifier: alert.id, content: content, trigger: nil)
                     guard generation == self.policyGeneration else { self.pending.remove(alert.id); return }
@@ -152,14 +148,12 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                            withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+        // `.list` keeps the notice in Notification Center; without it a notice that arrives while the app is active is gone with its banner.
+        completionHandler([.banner, .list, .sound])
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let category = response.notification.request.content.categoryIdentifier, install = response.actionIdentifier == Self.installAction
-        let model = response.notification.request.content.userInfo["model"] as? String
-        Task { @MainActor in
-            if category == Self.updateCategory { self.onUpdateRequested?(install) } else if category == Self.newModelCategory, let model { self.onMonitorModel?(model) }
-            completionHandler()
-        }
+        // Clicking the body is the natural gesture, and action buttons only show on hover; both lead to the same place.
+        let route = NotificationRoute.of(category: response.notification.request.content.categoryIdentifier, userInfo: response.notification.request.content.userInfo)
+        Task { @MainActor in self.onOpen?(route); completionHandler() }
     }
 }
