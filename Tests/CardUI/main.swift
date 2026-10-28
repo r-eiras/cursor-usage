@@ -82,6 +82,15 @@ MainActor.assumeIsolated {
             CursorMark.configure(status, title: "$1", showsIcon: true, style: style, usage: 0.7); check(status.image !== red, "Crossing a level changes the color")
         }
     }
+    final class Flipped: NSView { override var isFlipped: Bool { true } }
+    let list = OverlayScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 100)); list.documentView = Flipped(frame: NSRect(x: 0, y: 0, width: 100, height: 300)); list.tile()
+    check(list.showsMoreBelow && (list.isFlipped ? list.moreBelow.frame.maxY == list.bounds.maxY : list.moreBelow.frame.minY == 0) && list.moreBelow.frame.width == 100, "Content below the visible area shows a fade with an arrow at the bottom")
+    list.contentView.scroll(to: NSPoint(x: 0, y: 200)); list.reflectScrolledClipView(list.contentView)
+    check(!list.showsMoreBelow, "At the end of the list the indicator goes away")
+    list.contentView.scroll(to: NSPoint(x: 0, y: 50)); list.reflectScrolledClipView(list.contentView)
+    check(list.showsMoreBelow, "Scrolling back up brings it back")
+    list.documentView?.frame.size.height = 80; check(!list.showsMoreBelow, "Content that fits needs no indicator")
+    check(list.moreBelow.hitTest(NSPoint(x: 50, y: 10)) == nil, "The indicator never blocks clicks on the rows under it")
     let pinned = OverlayScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 100)); pinned.scrollerStyle = .legacy
     check(pinned.scrollerStyle == .overlay, "Lists keep scrollers that fade out, even when macOS prefers visible ones")
     print("PASS: model sorting controls, current month, removal of the custom period, model detail and fading scrollers")

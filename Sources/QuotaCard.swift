@@ -149,7 +149,7 @@ import AppKit
         for index in 0..<3 { tabs.setWidth(94, forSegment: index) }; addSubview(tabs)
         sortPicker.frame = NSRect(x: 122, y: 170, width: 180, height: 22); sortPicker.selectedSegment = 0; sortPicker.target = self; sortPicker.action = #selector(sortChanged)
         sortPicker.toolTip = L("Ordenar do maior para o menor: gasto, tokens ou ritmo (gasto típico em 15 min, o mesmo dos avisos por modelo).", "Sort from highest: cost, tokens or pace (usual spend per 15 min, the same the model alerts use)."); sortPicker.font = .systemFont(ofSize: 10); sortPicker.segmentStyle = .rounded; addSubview(sortPicker)
-        modelScroll.drawsBackground = false; modelScroll.hasVerticalScroller = true; modelScroll.autohidesScrollers = true; addSubview(modelScroll)
+        modelScroll.drawsBackground = false; modelScroll.fadeColor = QuotaStyle.background; modelScroll.hasVerticalScroller = true; modelScroll.autohidesScrollers = true; addSubview(modelScroll)
         for (name, x, action) in [("gearshape", CGFloat(190), #selector(preferencesAction)), ("arrow.clockwise", CGFloat(222), #selector(refreshAction)), ("person.crop.circle", CGFloat(254), #selector(connectAction)), ("power", CGFloat(286), #selector(quitAction))] {
             let b = NSButton(image: NSImage(systemSymbolName: name, accessibilityDescription: nil)!, target: self, action: action)
             b.frame = NSRect(x: x, y: 363, width: 25, height: 25); b.isBordered = false; b.contentTintColor = QuotaStyle.muted; addSubview(b); toolButtons.append(b)
