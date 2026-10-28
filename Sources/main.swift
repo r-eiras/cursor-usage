@@ -439,6 +439,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             card.setUpdate(availableUpdate, installing: installingUpdate)
             card.configure(preferences: preferences, budget: budget)
             card.update(snapshot: latest, dataset: dataset, selection: selection, stale: stale, message: message, analyticsMessage: analyticsMessage)
+            card.setPaces(modelPaceValues())
         }
         notifications.evaluate(budget, preferences: preferences, quotaFresh: !stale)
         let statusData: [String: Any] = ["version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development", "pid": ProcessInfo.processInfo.processIdentifier, "readings": history.count, "events": dataset?.events.count ?? 0, "message": message, "analytics": analyticsMessage, "loading": webView?.isLoading ?? false, "dashboardResident": webView != nil, "signedOut": isSignedOut, "loginPaused": loginPaused, "statusVisible": status.isVisible, "statusWindowVisible": status.button?.window?.isVisible ?? false, "placementRecoveries": placementRecoveries, "statusSafeArea": status.button?.window?.screen?.auxiliaryTopRightArea.map { NSStringFromRect($0) } ?? "", "statusFrame": status.button.map { NSStringFromRect($0.window?.frame ?? .zero) } ?? "", "preferencesVisible": preferencesPanel?.window?.isVisible ?? false, "pageIdle": pageIdle]
@@ -467,12 +468,20 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
         NSApp.activate(ignoringOtherApps: true)
-        let credits = NSMutableAttributedString(string: L("Consumo do Cursor na barra de menus.\nProjeto independente, sem vínculo com a Anysphere.\n\n", "Cursor usage in the menu bar.\nIndependent project, not affiliated with Anysphere.\n\n"))
-        for (title, url) in [(L("Criado por \(ProjectLinks.author)", "Created by \(ProjectLinks.author)"), ProjectLinks.authorProfile), (L("Código no GitHub", "Source on GitHub"), ProjectLinks.repository), (L("Novidades das versões", "Release notes"), ProjectLinks.releases), (L("Reportar problema", "Report an issue"), ProjectLinks.issues), (L("Licença MIT", "MIT license"), ProjectLinks.license)] {
-            credits.append(NSAttributedString(string: title, attributes: [.link: url]))
-            credits.append(NSAttributedString(string: "\n"))
+        // Centered lines with room between them, so each link is easy to read and to click; the author stands apart.
+        let style = NSMutableParagraphStyle(); style.alignment = .center; style.paragraphSpacing = 7
+        let font = NSFont.systemFont(ofSize: 11)
+        let credits = NSMutableAttributedString(string: L("Consumo do Cursor na barra de menus.\nProjeto independente, sem vínculo com a Anysphere.\n\n", "Cursor usage in the menu bar.\nIndependent project, not affiliated with Anysphere.\n\n"),
+                                                attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: style])
+        credits.append(NSAttributedString(string: L("Criado por ", "Created by "), attributes: [.font: font, .foregroundColor: NSColor.labelColor, .paragraphStyle: style]))
+        credits.append(NSAttributedString(string: ProjectLinks.author, attributes: [.font: NSFont.systemFont(ofSize: 11, weight: .semibold), .link: ProjectLinks.authorProfile, .paragraphStyle: style]))
+        credits.append(NSAttributedString(string: "\n\n", attributes: [.font: font, .paragraphStyle: style]))
+        let links = [(L("Código no GitHub", "Source on GitHub"), ProjectLinks.repository), (L("Novidades das versões", "Release notes"), ProjectLinks.releases),
+                     (L("Reportar problema", "Report an issue"), ProjectLinks.issues), (L("Licença MIT", "MIT license"), ProjectLinks.license)]
+        for (index, (title, url)) in links.enumerated() {
+            credits.append(NSAttributedString(string: title, attributes: [.font: font, .link: url, .paragraphStyle: style]))
+            if index < links.count - 1 { credits.append(NSAttributedString(string: "\n", attributes: [.font: font, .paragraphStyle: style])) }
         }
-        credits.addAttribute(.font, value: NSFont.systemFont(ofSize: 11), range: NSRange(location: 0, length: credits.length))
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: ProjectLinks.name, .applicationVersion: version, .version: build,
             .applicationIcon: CursorMark.appImage(size: 96, template: false), .credits: credits
@@ -536,6 +545,12 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             if let data = try? JSONEncoder().encode(result.known) { try? data.write(to: file, options: .atomic); try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path) }
         }
         notifications.announceModels(result.alerts, sound: preferences.alertSound)
+    }
+    // The same paces the alert uses: saved ones, refreshed by the current history.
+    private func modelPaceValues() -> [String: Int64] {
+        var paces = modelPaces
+        if let dataset { for baseline in ModelAlerts.baselines(dataset.events, before: dataset.fetchedAt.addingTimeInterval(-ModelAlerts.window)) { paces[baseline.model] = baseline } }
+        return paces.mapValues(\.typicalMicros)
     }
     // Models of the current cycle for the settings picker, costliest first; "new" when first seen in the last three days.
     private func modelChoices() -> [ModelAlertControls.Choice] {
@@ -628,13 +643,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             panel.onStartupChange = { [weak self] in try self?.loginItem.setEnabled($0) }
             panel.onStartupSettings = { LoginItemManager.openSettings() }
             panel.onModelChoices = { [weak self] in self?.modelChoices() ?? [] }
-            panel.onModelPaces = { [weak self] in
-                guard let self else { return [:] }
-                // The same paces the alert uses: saved ones, refreshed by the current history.
-                var paces = self.modelPaces
-                if let dataset = self.dataset { for baseline in ModelAlerts.baselines(dataset.events, before: dataset.fetchedAt.addingTimeInterval(-ModelAlerts.window)) { paces[baseline.model] = baseline } }
-                return paces.mapValues(\.typicalMicros)
-            }
+            panel.onModelPaces = { [weak self] in self?.modelPaceValues() ?? [:] }
             panel.onConnect = { [weak self] in self?.showDashboard() }
             panel.onDisconnect = { [weak self] in self?.disconnectAccount() }
             panel.canDisconnect = { [weak self] in self.map { !$0.isSignedOut && !$0.signingOut } ?? false }

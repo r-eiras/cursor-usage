@@ -2,8 +2,8 @@ import Foundation
 
 enum ProjectLinks {
     static let name = "Cursor Usage"
-    static let author = "r-eiras"
-    static let authorProfile = URL(string: "https://github.com/r-eiras")!
+    static let author = "Renan Eiras Melo"
+    static let authorProfile = URL(string: "https://www.linkedin.com/in/renaneirasmelo/")!
     static let repository = URL(string: "https://github.com/r-eiras/cursor-usage")!
     static let releases = repository.appendingPathComponent("releases")
     static let license = repository.appendingPathComponent("blob/main/LICENSE")

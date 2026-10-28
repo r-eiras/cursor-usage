@@ -15,7 +15,7 @@ MainActor.assumeIsolated {
         let card = QuotaCard(frame: NSRect(origin: .zero, size: QuotaCard.size))
         card.update(snapshot: nil, dataset: dataset, selection: PeriodSelection(), stale: false, message: "", analyticsMessage: "", now: now)
         card.showModels()
-        let sort = card.subviews.compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 }!
+        let sort = card.subviews.compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 3 && $0.label(forSegment: 1) == "Tokens" }!
         let scroll = card.subviews.compactMap { $0 as? NSScrollView }.first!
         func firstModel() -> String { scroll.documentView?.subviews.first?.accessibilityLabel() ?? "" }
         check(firstModel().contains("expensive-model"), "Cost sorting starts with the most expensive model")
@@ -23,6 +23,13 @@ MainActor.assumeIsolated {
         check(firstModel().contains("token-heavy-model"), "Tokens sorting changes the visible model order")
         sort.selectedSegment = 0; _ = sort.sendAction(sort.action, to: sort.target)
         check(firstModel().contains("expensive-model"), "Cost sorting restores the highest-cost order")
+        check(sort.label(forSegment: 2) == L("Ritmo", "Pace"), "A third order sorts by pace")
+        card.setPaces(["token-heavy-model": 9_000_000, "expensive-model": 2_000_000])
+        sort.selectedSegment = 2; _ = sort.sendAction(sort.action, to: sort.target)
+        check(firstModel().contains("token-heavy-model"), "Pace sorting puts the fastest usual 15 minutes first")
+        check(scroll.documentView?.subviews.first?.accessibilityHelp()?.contains(QuotaStyle.money(9_000_000)) == true, "Each row carries its pace into the detail")
+        card.setPaces(["expensive-model": 12_000_000]); check(firstModel().contains("expensive-model"), "New paces reorder the list; models without a pace go last")
+        sort.selectedSegment = 0; _ = sort.sendAction(sort.action, to: sort.target)
         let period = card.subviews.compactMap { $0 as? NSPopUpButton }.first!
         check(period.numberOfItems == 5 && !period.itemTitles.contains(L("Personalizado", "Custom")), "The card has no custom period option")
         var selected: UsagePeriod?
@@ -37,6 +44,8 @@ MainActor.assumeIsolated {
         let lines = ModelDetailView.lines(for: expensive, share: 0.9)
         check(lines.first?.1.contains(QuotaStyle.money(10_000_000)) == true && lines.contains { $0.0 == L("Custo médio por requisição", "Average cost per request") }, "The detail shows the cost, its share and the average per request")
         check(lines.contains { $0.0 == L("Leitura de cache", "Cache read") } && lines.contains { $0.0 == L("Saída", "Output") }, "The detail shows every token kind")
+        check(lines.contains { $0 == (L("Ritmo típico em 15 min", "Usual pace per 15 min"), L("pouco uso ainda", "not enough use yet")) }, "Without a pace the detail says there is not enough use yet")
+        check(ModelDetailView.lines(for: expensive, share: 0.9, pace: 3_000_000).contains { $0 == (L("Ritmo típico em 15 min", "Usual pace per 15 min"), QuotaStyle.money(3_000_000)) }, "The detail shows the model's usual 15 minutes")
     }
     let detail = ModelDetailView(frame: .zero)
     let short = detail.show(expensive, share: 0.9)

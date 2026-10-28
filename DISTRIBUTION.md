@@ -1,6 +1,6 @@
 # Cursor app distribution
 
-Version 3.4.5 targets macOS 14 or later. Builds use the host architecture; validate Intel separately before publishing an Intel artifact.
+Version 3.4.6 targets macOS 14 or later. Builds use the host architecture; validate Intel separately before publishing an Intel artifact.
 
 1. Install with `install.sh`, or build from source and move `Cursor Usage.app` to Applications.
 2. Open it and connect through the official Cursor dashboard.
@@ -23,7 +23,7 @@ Observed behavior on macOS 26 with the default "App Store and identified develop
 
 This is a workaround for the missing notarization, not a substitute for it. Signing with a Developer ID and notarizing is the only change that would make a browser download or a package manager work for every user. The tooling for it (`notarytool`, `stapler`) ships with the Command Line Tools; what is missing is Apple Developer Program membership and a Developer ID Application certificate.
 
-Keep the version in the `install.sh` examples in the READMEs in sync with each release.
+Keep the version line at the top of both READMEs in sync with each release.
 
 ## Routes that were removed
 
