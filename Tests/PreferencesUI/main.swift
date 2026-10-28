@@ -1,7 +1,9 @@
 import AppKit
 func check(_ value: @autoclosure () -> Bool, _ message: String) { if !value() { fatalError(message) } }
 MainActor.assumeIsolated {
-    _ = NSApplication.shared
+    NSApplication.shared.setActivationPolicy(.prohibited)
+    var dockPolicy = NSApplication.ActivationPolicy.accessory
+    PreferencesPanel.applyActivationPolicy = { dockPolicy = $0 }; PreferencesPanel.activateApp = {}
     for language in [AppLanguage.english, .portuguese] {
         AppLanguage.current = language
         let controls = CursorAlertControls()
@@ -272,13 +274,13 @@ MainActor.assumeIsolated {
         check(saved?.notifyDaily == true && saved?.personalBudgetEnabled == true && saved?.personalBudgetMicros == 50_000_000 && saved?.menuBarDensity == .detailed && saved?.iconColorBasis == .day && saved?.colorNumbers == true, "Saving keeps the corporate choices for a later corporate account")
         panel.present(AppPreferences())
         check(!panel.isPersonalAccount && note?.isHidden == true && popups[0].isEnabled && goal?.isEnabled == true, "A corporate account gets every option back")
-        check(NSApp.activationPolicy() == .regular, "While Settings is open the app is in the Dock and in Cmd+Tab")
+        check(dockPolicy == .regular, "While Settings is open the app is in the Dock and in Cmd+Tab")
         panel.present(AppPreferences(), personalPlan: .some("Free"), bringToFront: false)
         check(panel.isPersonalAccount && popups[2].item(at: 0)?.isEnabled == false && panel.window?.isVisible == true, "An open window follows a switch to a personal account in place")
         panel.present(AppPreferences(), bringToFront: false)
         check(!panel.isPersonalAccount && popups[0].isEnabled && popups[2].item(at: 0)?.isEnabled == true, "And back to a corporate one, without reopening")
         boxes.first { $0.title == L("Cancelar", "Cancel") }!.performClick(nil)
-        check(NSApp.activationPolicy() == .accessory && panel.window?.isVisible == false, "Closing Settings returns the app to the menu bar only")
+        check(dockPolicy == .accessory && panel.window?.isVisible == false, "Closing Settings returns the app to the menu bar only")
     }
     print("PASS: Cursor controls, numeric validation, pt-BR/en, fixed preferences footer and per-model alert settings")
 }

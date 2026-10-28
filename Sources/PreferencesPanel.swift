@@ -170,18 +170,21 @@ import AppKit
         models.setPaces(onModelPaces?() ?? [:]); models.personalAccount = isPersonalAccount
         refreshStartup(); changed(); window?.setContentSize(NSSize(width: 520, height: Self.fittedHeight()))
         selectTab(); guard bringToFront else { return }
-        if window?.isVisible != true { window?.center() }; showWindow(nil); setDocked(true); NSApp.activate(ignoringOtherApps: true)
+        if window?.isVisible != true { window?.center() }; showWindow(nil); setDocked(true); Self.activateApp()
     }
     // While Settings is open the app is a regular one, in the Dock and in Cmd+Tab, so switching apps never loses the
     // window; closing it returns the app to the menu bar only.
-    private func setDocked(_ docked: Bool) { if NSApp.activationPolicy() != (docked ? .regular : .accessory) { NSApp.setActivationPolicy(docked ? .regular : .accessory) } }
+    private func setDocked(_ docked: Bool) { Self.applyActivationPolicy(docked ? .regular : .accessory) }
+    // Tests swap these to check the Dock behaviour without putting the test process in the Dock or taking focus.
+    static var applyActivationPolicy: (NSApplication.ActivationPolicy) -> Void = { if NSApp.activationPolicy() != $0 { NSApp.setActivationPolicy($0) } }
+    static var activateApp: () -> Void = { NSApp.activate(ignoringOtherApps: true) }
     func suspendForMenuBar() {
         guard window?.isVisible == true else { return }
         suspendedForMenuBar = true; window?.orderOut(nil)
     }
     func resumeIfSuspended() -> Bool {
         guard suspendedForMenuBar else { return false }
-        suspendedForMenuBar = false; showWindow(nil); setDocked(true); NSApp.activate(ignoringOtherApps: true)
+        suspendedForMenuBar = false; showWindow(nil); setDocked(true); Self.activateApp()
         return true
     }
     func windowWillClose(_ notification: Notification) { suspendedForMenuBar = false; setDocked(false) }
