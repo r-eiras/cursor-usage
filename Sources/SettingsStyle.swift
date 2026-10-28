@@ -3,7 +3,11 @@ import AppKit
 // Scrollers that fade out after scrolling. With a mouse attached macOS prefers always-visible scrollers and resets
 // the style when that preference changes, so the style is pinned here instead of set once.
 final class OverlayScrollView: NSScrollView {
-    override var scrollerStyle: NSScroller.Style { get { .overlay } set { super.scrollerStyle = .overlay } }
+    // Lists keep scrollers that fade out; a window whose content is mostly below the fold keeps its bar on screen.
+    var keepsScrollerVisible = false {
+        didSet { if keepsScrollerVisible { verticalScroller = ThinScroller() }; super.scrollerStyle = scrollerStyle; tile() }
+    }
+    override var scrollerStyle: NSScroller.Style { get { keepsScrollerVisible ? .legacy : .overlay } set { super.scrollerStyle = keepsScrollerVisible ? .legacy : .overlay } }
     // Fading scrollers hide that there is more to see, so a fade with an arrow sits at the bottom while content
     // continues below, and goes away at the end.
     let moreBelow = MoreBelowIndicator()
@@ -29,6 +33,20 @@ final class OverlayScrollView: NSScrollView {
         let visible = contentView.bounds
         let remaining = document.isFlipped ? document.frame.height - visible.maxY : visible.minY
         moreBelow.isHidden = document.frame.height <= visible.height + 1 || remaining <= 4
+    }
+}
+
+// The bar that stays on screen: a thin rounded knob with no track, instead of the wide classic scroller.
+final class ThinScroller: NSScroller {
+    static let width: CGFloat = 10
+    override class func scrollerWidth(for controlSize: NSControl.ControlSize, scrollerStyle: NSScroller.Style) -> CGFloat { width }
+    override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {}
+    override func draw(_ dirtyRect: NSRect) { drawKnob() }
+    override func drawKnob() {
+        let knob = rect(for: .knob).insetBy(dx: 2.5, dy: 2)
+        guard knob.height > 0 else { return }
+        NSColor.secondaryLabelColor.withAlphaComponent(0.55).setFill()
+        NSBezierPath(roundedRect: knob, xRadius: knob.width / 2, yRadius: knob.width / 2).fill()
     }
 }
 

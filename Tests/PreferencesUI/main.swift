@@ -53,6 +53,7 @@ MainActor.assumeIsolated {
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         let views = descendants(content)
         let pickers = views.compactMap { $0 as? NSPopUpButton }
+        check(views.compactMap { $0 as? OverlayScrollView }.first?.scrollerStyle == .legacy, "Settings keep the scroll bar on screen")
         check(pickers.count == 10, "All menu, icon color, model pace, sync and language selectors are present")
         let mode = pickers[0], basis = pickers[1], density = pickers[2]
         let navigation = views.compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 3 }!

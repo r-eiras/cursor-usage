@@ -49,7 +49,7 @@ import AppKit
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 520, height: height)); window.contentView = container
         scroll.frame = NSRect(x: 0, y: Self.footer, width: 520, height: height - Self.footer)
         scroll.autoresizingMask = [.width, .height]; scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true; scroll.drawsBackground = false
-        scroll.fadeColor = window.backgroundColor
+        scroll.fadeColor = window.backgroundColor; scroll.keepsScrollerVisible = true
         let content = SettingsContent(frame: NSRect(x: 0, y: 0, width: 520, height: 600)); scroll.documentView = content; container.addSubview(scroll)
         super.init(window: window); window.delegate = self
         func label(_ text: String, in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, size: CGFloat = 12, muted: Bool = false) {

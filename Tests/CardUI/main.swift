@@ -93,5 +93,8 @@ MainActor.assumeIsolated {
     check(list.moreBelow.hitTest(NSPoint(x: 50, y: 10)) == nil, "The indicator never blocks clicks on the rows under it")
     let pinned = OverlayScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 100)); pinned.scrollerStyle = .legacy
     check(pinned.scrollerStyle == .overlay, "Lists keep scrollers that fade out, even when macOS prefers visible ones")
+    let window = OverlayScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 100)); window.keepsScrollerVisible = true; window.scrollerStyle = .overlay
+    check(window.scrollerStyle == .legacy, "A scroll view can keep its bar on screen instead")
+    check(window.verticalScroller is ThinScroller && type(of: window.verticalScroller!).scrollerWidth(for: .regular, scrollerStyle: .legacy) <= 10, "The bar that stays is thin")
     print("PASS: model sorting controls, current month, removal of the custom period, model detail and fading scrollers")
 }
