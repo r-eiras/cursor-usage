@@ -159,8 +159,14 @@ MainActor.assumeIsolated {
         func spentLabels() -> [String] { models.subviews.flatMap(\.subviews).compactMap { $0 as? NSTextField }.filter { !$0.isEditable }.map(\.stringValue) }
         fields()[1].stringValue = ""
         check(spentLabels().contains(MenuBarPresentation.money(15_000_000)), "A monitored row shows the model's cycle spend")
-        models.updateSpend([ModelAlertControls.Choice(model: "gemini-argon", cycleSpendMicros: 42_000_000, isNew: false)])
+        models.updateSpend([ModelAlertControls.Choice(model: "gemini-argon", cycleSpendMicros: 42_000_000, isNew: false, daySpendMicros: 3_000_000)])
         check(spentLabels().contains(MenuBarPresentation.money(42_000_000)) && !spentLabels().contains(MenuBarPresentation.money(15_000_000)), "A sync while settings is open updates the row's cycle spend")
+        let amounts = models.subviews.flatMap(\.subviews).compactMap { $0 as? NSTextField }.filter { !$0.isEditable && $0.alignment == .right }.sorted { $0.frame.minX < $1.frame.minX }
+        let limits = fields().sorted { $0.frame.minX < $1.frame.minX }
+        check(amounts.map(\.stringValue) == [MenuBarPresentation.money(3_000_000), MenuBarPresentation.money(42_000_000)], "Each row shows today's spend and the cycle's spend")
+        check(amounts[0].frame.maxX < limits[0].frame.minX && limits[0].frame.maxX < amounts[1].frame.minX && amounts[1].frame.maxX < limits[1].frame.minX, "Each amount sits just before its own limit")
+        let headers = models.subviews.compactMap { $0 as? NSTextField }.map(\.stringValue)
+        check(headers.contains(L("Hoje", "Today")) && headers.contains(L("No ciclo", "This cycle")), "The columns name today and the cycle")
         check(models.draft()?.monitored == [MonitoredModel(model: "gemini-argon", dailyLimitMicros: 20_500_000, cycleLimitMicros: nil)], "Updating the spend keeps the limits being typed")
         fields()[1].stringValue = "50"
         let rate = models.subviews.compactMap { $0 as? NSButton }.first { $0.title.contains("50%") }!

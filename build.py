@@ -68,7 +68,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
     resources.mkdir(parents=True,exist_ok=True)
     shutil.copy2(root/'Assets/Cursor.png',resources/'Cursor.png')
     with (app/'Contents/Info.plist').open('wb') as output:
-        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.4.2','CFBundleVersion':'18','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
+        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleShortVersionString':'3.4.3','CFBundleVersion':'19','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
     run('codesign','--force','--sign','-',str(app))
     # Replace the bundle atomically; never overwrite a running signed executable.
     destination = root/'Cursor Usage.app'

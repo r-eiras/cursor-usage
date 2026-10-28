@@ -3,15 +3,20 @@ import AppKit
 @MainActor enum CursorMark {
     private static let images: NSCache<NSNumber, NSImage> = { let cache = NSCache<NSNumber, NSImage>(); cache.countLimit = 8; return cache }()
     private static let sourceLogo: NSImage? = Bundle.main.url(forResource: "Cursor", withExtension: "png").flatMap { NSImage(contentsOf: $0) }
-    static func configure(_ button: NSButton, title: String, showsIcon: Bool, style: MenuIconStyle = .cursor) {
+    // A dot in the accent color after the reading while an update is available.
+    static let updateBadge = "●"
+    static func configure(_ button: NSButton, title: String, showsIcon: Bool, style: MenuIconStyle = .cursor, updateBadge: Bool = false) {
         let icon = showsIcon ? (style == .app ? appImage() : image()) : nil
         if button.image !== icon { button.image = icon }
         if button.font == nil || button.font?.pointSize != 11 { button.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium) }
         if button.imagePosition != .imageLeading { button.imagePosition = .imageLeading }
         let displayed = icon == nil && title.isEmpty ? "C" : title
-        if button.title != displayed || button.attributedTitle.length == 0 {
-            button.title = displayed
-            button.attributedTitle = NSAttributedString(string: displayed, attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium), .foregroundColor: NSColor.labelColor])
+        let badge = updateBadge ? (displayed.isEmpty ? Self.updateBadge : " " + Self.updateBadge) : ""
+        if button.title != displayed + badge || button.attributedTitle.length == 0 {
+            button.title = displayed + badge
+            let text = NSMutableAttributedString(string: displayed, attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium), .foregroundColor: NSColor.labelColor])
+            text.append(NSAttributedString(string: badge, attributes: [.font: NSFont.systemFont(ofSize: 8), .foregroundColor: NSColor.controlAccentColor, .baselineOffset: 2]))
+            button.attributedTitle = text
         }
     }
 

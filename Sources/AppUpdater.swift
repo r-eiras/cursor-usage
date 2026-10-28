@@ -46,6 +46,10 @@ struct AppUpdater {
         ["/bin/sh", "-c", "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.2; done; \(opener) \"$0\"", app.path]
     }
 
+    // Hourly, so a release reaches a running app the same day; announced versions are not notified twice, and
+    // 24 anonymous requests a day stay far below GitHub's limit of 60 an hour per address.
+    static let checkInterval: TimeInterval = 3600
+
     // The version a clicked update notice installs: its own, when newer than the running app.
     static func noticeTarget(_ version: String?, installed: String) -> String? {
         guard let version, let target = ReleaseVersion(version), let current = ReleaseVersion(installed), target > current else { return nil }

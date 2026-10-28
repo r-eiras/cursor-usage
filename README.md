@@ -26,7 +26,7 @@ If the sign-in page in that window doesn't work — for example, your Google acc
 
 That command is the way to install the app, and the same command updates it later. [Why only this command](#why-only-this-command) has the reason, if you want it.
 
-**Current version: 3.4.2 · build 18 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
+**Current version: 3.4.3 · build 19 · Apple Silicon · macOS 14 Sonoma or later · free and open source**
 
 | You need | Requirement |
 | --- | --- |
@@ -35,7 +35,7 @@ That command is the way to install the app, and the same command updates it late
 | Account | A Cursor account with usage available in the official dashboard. |
 | Connection | Internet access to sign in and refresh usage. |
 
-No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.4.2`. Developers can build from source instead; see [Build and test](#build-and-test).
+No Python, Node.js, Xcode, API key, or build tools are needed to run the app. To install a specific version, pass it: `bash install.sh 3.4.3`. Developers can build from source instead; see [Build and test](#build-and-test).
 
 ### The app vanishes, or no icon appears
 
@@ -74,7 +74,7 @@ The window stays the first option, because it relies only on Cursor's public pag
 
 ### Update
 
-The app checks for a new version once a day. When one is out, it sends a notification and shows **Update to …** in the card's footer and at the top of the right-click menu; both stay until you update. Click the notification, or either of those: the app downloads the release, checks it against the release's checksums and its signature, replaces itself and reopens in a few seconds. Your preferences and account session stay as they were. **Settings → App → Check for Updates** does the same on demand.
+The app checks for a new version every hour. When one is out, it sends a notification, adds a dot in your accent color after the reading in the menu bar, and shows **Update to …** in the card's footer and at the top of the right-click menu; all of them stay until you update. The dot and the button do not depend on notifications, so they still show when Focus or a notification utility hides the notice. Click the notification, or either of those: the app downloads the release, checks it against the release's checksums and its signature, replaces itself and reopens in a few seconds. Your preferences and account session stay as they were. **Settings → App → Check for Updates** does the same on demand.
 
 The first notification asks macOS for permission once, even if you never turned on usage alerts. If you decline, the menu item still offers the update.
 
@@ -143,7 +143,7 @@ Your Cursor allowance is shared by every model, so these alerts are about where 
 
 - **First use of a model.** When a model shows up that this account has never used, you get a notification with what it has spent so far, and a **Monitor this model** action that opens Settings with it already listed. The first sync only learns the models you use, so you don't get a burst of notices when you install the app.
 - **Spending above your costliest model.** The app learns how much each model usually spends in 15 minutes, from the median of the last 14 days, and takes the costliest one as the reference. If any model spends more than that reference plus a threshold you choose — 50% by default — in the last 15 minutes, you get one notice that day, naming both models and, when it applies, how much more each request costs. It needs a few sessions of history before it can compare anything, and it ignores bursts under US$ 1.
-- **Monitored models.** Pick models from those you use and give each a daily limit, a cycle limit, or both. Leave a field empty for no limit.
+- **Monitored models.** Pick models from those you use and give each a daily limit, a cycle limit, or both. Each row shows what the model spent today and in the cycle, each beside its own limit. Leave a field empty for no limit; each filled one notifies once when that amount is passed.
 
 Model data comes from the usage history the app imports, so these alerts arrive within your refresh interval, not instantly.
 
@@ -180,7 +180,7 @@ Do not attach account data, cookies, raw exports, authentication URLs, or person
 
 ## Build and test
 
-Current version: **3.4.2, build 18**.
+Current version: **3.4.3, build 19**.
 
 Building requires Python 3 and compatible Apple Command Line Tools. There are no external Python packages to install.
 

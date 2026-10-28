@@ -127,7 +127,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private func tick() {
         if !isSignedOut && !loginPaused && Date().timeIntervalSince(lastRefresh) >= preferences.syncInterval.seconds && (!window.isVisible || webView?.url?.path == dashboard.path) { refresh() }
         if Date().timeIntervalSince(lastRenewalCheck) >= 3600 { lastRenewalCheck = Date(); renewBrowserSessionIfNeeded() }
-        if Date() >= nextUpdateCheck { nextUpdateCheck = Date().addingTimeInterval(86400); checkForUpdatesQuietly() }
+        if Date() >= nextUpdateCheck { nextUpdateCheck = Date().addingTimeInterval(AppUpdater.checkInterval); checkForUpdatesQuietly() }
         readUsage(); releasePageIfSynced(); evaluateModelAlerts(); render()
     }
     @objc private func togglePopover() {
@@ -424,10 +424,12 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
         recoverStatusItemIfNeeded()
         if !status.isVisible { status.isVisible = true }
         if let button = status.button {
-            CursorMark.configure(button, title: presentation.title, showsIcon: preferences.showIcon || preferences.menuBarDensity == .iconsOnly, style: preferences.menuIconStyle)
+            CursorMark.configure(button, title: presentation.title, showsIcon: preferences.showIcon || preferences.menuBarDensity == .iconsOnly, style: preferences.menuIconStyle, updateBadge: availableUpdate != nil)
             let width = ceil(button.attributedTitle.size().width) + (button.image == nil ? 14 : 34)
             if status.length != max(24, width) { status.length = max(24, width) }
-            button.toolTip = nil; button.setAccessibilityLabel(ProjectLinks.name)
+            // The badge is the one update signal that a notification utility or Focus cannot take away.
+            let update = availableUpdate.map { L("Atualização \($0) disponível", "Update \($0) available") }
+            button.toolTip = update; button.setAccessibilityLabel(update.map { "\(ProjectLinks.name), \($0)" } ?? ProjectLinks.name)
         }
         if forceCard || popover.isShown {
             card.setUpdate(availableUpdate, installing: installingUpdate)
@@ -530,12 +532,14 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     private func modelChoices() -> [ModelAlertControls.Choice] {
         guard let dataset else { return [] }
         let now = Date(), start = cycleStart ?? Calendar.current.dateInterval(of: .month, for: now)!.start, recent = now.addingTimeInterval(-3 * 86400)
-        var spend: [String: Int64] = [:], first: [String: Date] = [:]
+        let today = Calendar.current.startOfDay(for: now)
+        var spend: [String: Int64] = [:], daySpend: [String: Int64] = [:], first: [String: Date] = [:]
         for event in dataset.events {
             if event.date >= start { spend[event.model, default: 0] += event.costMicros }
+            if event.date >= today && event.date <= now { daySpend[event.model, default: 0] += event.costMicros }
             first[event.model] = min(first[event.model] ?? event.date, event.date)
         }
-        return first.keys.map { ModelAlertControls.Choice(model: $0, cycleSpendMicros: spend[$0] ?? 0, isNew: dataset.coverageStart < recent && (first[$0] ?? now) >= recent) }
+        return first.keys.map { ModelAlertControls.Choice(model: $0, cycleSpendMicros: spend[$0] ?? 0, isNew: dataset.coverageStart < recent && (first[$0] ?? now) >= recent, daySpendMicros: daySpend[$0] ?? 0) }
             .sorted { $0.cycleSpendMicros == $1.cycleSpendMicros ? $0.model < $1.model : $0.cycleSpendMicros > $1.cycleSpendMicros }
     }
     // A daily check: a new release is announced once and stays offered in the menu until installed.

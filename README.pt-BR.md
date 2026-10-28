@@ -26,7 +26,7 @@ Se a página de login dessa janela não funcionar — por exemplo, sua conta Goo
 
 Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [Por que só este comando](#por-que-só-este-comando) traz o motivo, se você quiser.
 
-**Versão atual: 3.4.2 · build 18 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
+**Versão atual: 3.4.3 · build 19 · Apple Silicon · macOS 14 Sonoma ou superior · gratuito e de código aberto**
 
 | Você precisa de | Requisito |
 | --- | --- |
@@ -35,7 +35,7 @@ Esse comando é a forma de instalar o app, e o mesmo comando atualiza depois. [P
 | Conta | Uma conta do Cursor com uso disponível no painel oficial. |
 | Conexão | Internet para entrar na conta e atualizar o consumo. |
 
-Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.4.2`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
+Não precisa instalar Python, Node.js, Xcode, chave de API ou ferramentas de desenvolvimento. Para instalar uma versão específica, informe o número: `bash install.sh 3.4.3`. Quem desenvolve pode compilar a partir do código; veja [Build, testes e distribuição](#build-testes-e-distribuição).
 
 ### O app desaparece, ou nenhum ícone aparece
 
@@ -74,7 +74,7 @@ A janela continua sendo a primeira opção, porque depende só das páginas púb
 
 ### Como atualizar
 
-O app procura uma versão nova uma vez por dia. Quando sai uma, ele manda uma notificação e mostra **Atualizar para …** no rodapé do cartão e no topo do menu do botão direito; os dois ficam até você atualizar. Clique na notificação ou em qualquer um deles: o app baixa a versão, confere contra os checksums e a assinatura do release, se substitui e reabre em alguns segundos. Suas preferências e a sessão da conta continuam como estavam. **Configurações → App → Verificar atualizações** faz o mesmo na hora.
+O app procura uma versão nova a cada hora. Quando sai uma, ele manda uma notificação, põe um ponto na cor de destaque depois do valor na barra de menus e mostra **Atualizar para …** no rodapé do cartão e no topo do menu do botão direito; tudo isso fica até você atualizar. O ponto e o botão não dependem de notificação, então aparecem mesmo quando o Foco ou um utilitário de notificações esconde o aviso. Clique na notificação ou em qualquer um deles: o app baixa a versão, confere contra os checksums e a assinatura do release, se substitui e reabre em alguns segundos. Suas preferências e a sessão da conta continuam como estavam. **Configurações → App → Verificar atualizações** faz o mesmo na hora.
 
 A primeira notificação pede permissão ao macOS uma vez, mesmo que você nunca tenha ligado os avisos de consumo. Se recusar, o item do menu continua oferecendo a atualização.
 
@@ -141,7 +141,7 @@ A cota do Cursor é uma só para todos os modelos, então estes avisos mostram p
 
 - **Primeiro uso de um modelo.** Quando aparece um modelo que esta conta nunca usou, chega uma notificação com quanto ele já gastou e a ação **Monitorar este modelo**, que abre as Configurações com ele já na lista. A primeira sincronização só aprende os modelos que você usa, para não chegar uma enxurrada de avisos ao instalar o app.
 - **Gasto acima do seu modelo mais caro.** O app aprende quanto cada modelo costuma gastar em 15 minutos, pela mediana dos últimos 14 dias, e usa o mais caro como referência. Se algum modelo gastar mais que essa referência mais um limite que você escolhe — 50% por padrão — nos últimos 15 minutos, chega um aviso naquele dia, com os dois modelos e, quando for o caso, quanto cada requisição custa a mais. Ele precisa de algumas sessões de histórico antes de conseguir comparar, e ignora picos abaixo de US$ 1.
-- **Modelos monitorados.** Escolha modelos entre os que você usa e dê a cada um um limite por dia, por ciclo ou os dois. Campo vazio significa sem limite.
+- **Modelos monitorados.** Escolha modelos entre os que você usa e dê a cada um um limite por dia, por ciclo ou os dois. Cada linha mostra quanto o modelo gastou hoje e no ciclo, cada valor ao lado do seu limite. Campo vazio significa sem limite; cada campo preenchido avisa uma vez quando o valor é ultrapassado.
 
 Os dados por modelo vêm do histórico que o app importa, então esses avisos chegam dentro do intervalo de sincronização, e não na hora.
 
@@ -173,7 +173,7 @@ Não publique cookies, exports brutos, URLs de autenticação ou arquivos pessoa
 
 ## Build, testes e distribuição
 
-Versão atual: **3.4.2, build 18**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
+Versão atual: **3.4.3, build 19**. Para compilar, instale Python 3 e Apple Command Line Tools compatíveis.
 
 ```sh
 python3 build.py

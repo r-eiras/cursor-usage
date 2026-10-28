@@ -55,6 +55,12 @@ MainActor.assumeIsolated {
         check(!button.isEnabled && button.title == L("Atualizando para 9.1.0…", "Updating to 9.1.0…"), "While installing, the button shows progress and cannot start a second update")
         check(button.frame.maxX <= 186 && button.frame.minY >= 356, "The button takes the footer text's place, clear of the toolbar icons")
         card.setUpdate(nil, installing: false); check(button.isHidden, "Once installed, the button goes away")
+        let status = NSButton(title: "", target: nil, action: nil)
+        CursorMark.configure(status, title: "$12.30", showsIcon: false, updateBadge: true)
+        let dot = (status.attributedTitle.string as NSString).range(of: CursorMark.updateBadge)
+        check(status.title == "$12.30 ●" && status.attributedTitle.attribute(.foregroundColor, at: dot.location, effectiveRange: nil) as? NSColor == .controlAccentColor, "An available update adds an accent dot after the menu bar reading")
+        CursorMark.configure(status, title: "$12.30", showsIcon: false); check(status.title == "$12.30", "The dot goes away once the update is installed")
+        CursorMark.configure(status, title: "", showsIcon: true, updateBadge: true); check(status.title == "●" && status.image != nil, "With only the icon, the dot follows it without a leading space")
     }
     let pinned = OverlayScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 100)); pinned.scrollerStyle = .legacy
     check(pinned.scrollerStyle == .overlay, "Lists keep scrollers that fade out, even when macOS prefers visible ones")

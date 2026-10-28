@@ -3,7 +3,7 @@ import AppKit
 // Per-model alerts in settings: a model's first use, spending above the costliest model, and goals for chosen models.
 @MainActor final class ModelAlertControls: NSView, NSTextFieldDelegate {
     struct Draft: Equatable { var notifyNewModel = true; var notifyRate = true; var ratePercent = 50; var monitored: [MonitoredModel] = [] }
-    struct Choice: Equatable { let model: String; let cycleSpendMicros: Int64; let isNew: Bool }
+    struct Choice: Equatable { let model: String; let cycleSpendMicros: Int64; let isNew: Bool; var daySpendMicros: Int64 = 0 }
     var onChange: (() -> Void)?
     var onResize: (() -> Void)?
     private let newModel = NSButton(checkboxWithTitle: "", target: nil, action: nil)
@@ -30,8 +30,10 @@ import AppKit
         rateDescription.frame = NSRect(x: 236, y: 122, width: 216, height: 22); rateDescription.font = .systemFont(ofSize: 11)
         SettingsStyle.note(L("Compara o gasto dos últimos 15 minutos com o gasto típico do seu modelo mais caro nos últimos 14 dias.", "Compares the last 15 minutes of spending with your costliest model's usual 15 minutes over the past 14 days."), in: self, x: 22, y: 148, width: 430, height: 30)
         SettingsStyle.header(L("Modelos monitorados", "Monitored models"), in: self, x: 0, y: 186, size: 12)
-        for (title, x, width, align) in [(L("Modelo", "Model"), CGFloat(0), CGFloat(190), NSTextAlignment.left), (L("No ciclo", "This cycle"), 196, 84, .right),
-                                         (L("Limite/dia", "Limit/day"), 288, 66, .left), (L("Limite/ciclo", "Limit/cycle"), 360, 66, .left)] {
+        // Each amount sits beside its own limit, so the cycle total is not mistaken for today's spend.
+        for (title, x, width, align) in [(L("Modelo", "Model"), CGFloat(0), CGFloat(142), NSTextAlignment.left), (L("Hoje", "Today"), 146, 58, .right),
+                                         (L("Limite/dia", "Limit/day"), 210, 62, .left), (L("No ciclo", "This cycle"), 278, 62, .right),
+                                         (L("Limite/ciclo", "Limit/cycle"), 344, 66, .left)] {
             let label = NSTextField(labelWithString: title); label.frame = NSRect(x: x, y: 210, width: width, height: 16)
             label.font = .systemFont(ofSize: 11); label.textColor = .secondaryLabelColor; label.alignment = align; addSubview(label)
         }
@@ -71,11 +73,11 @@ import AppKit
     // Keeps "This cycle" in step with each sync while settings stays open; limits being typed are left alone.
     func updateSpend(_ choices: [Choice]) {
         self.choices = choices
-        for row in rows { row.setSpend(choices.first { $0.model == row.model }?.cycleSpendMicros) }
+        for row in rows { row.setSpend(choices.first { $0.model == row.model }) }
     }
 
     private func append(_ value: MonitoredModel) {
-        let row = LimitRow(value, spend: choices.first { $0.model == value.model }?.cycleSpendMicros, frame: NSRect(x: 0, y: 0, width: 452, height: Self.rowHeight))
+        let row = LimitRow(value, spend: choices.first { $0.model == value.model }, frame: NSRect(x: 0, y: 0, width: 452, height: Self.rowHeight))
         row.onChange = { [weak self] in self?.onChange?() }
         row.onRemove = { [weak self] row in self?.rows.removeAll { $0 === row }; row.removeFromSuperview(); self?.relayout(); self?.onChange?() }
         rows.append(row); addSubview(row)
@@ -115,16 +117,19 @@ import AppKit
 @MainActor private final class LimitRow: NSView, NSTextFieldDelegate {
     let model: String
     var onChange: (() -> Void)?; var onRemove: ((LimitRow) -> Void)?
-    private let daily = NSTextField(), cycle = NSTextField(), spent = NSTextField(labelWithString: "")
+    private let daily = NSTextField(), cycle = NSTextField(), daySpent = NSTextField(labelWithString: ""), cycleSpent = NSTextField(labelWithString: "")
     override var isFlipped: Bool { true }
-    init(_ value: MonitoredModel, spend: Int64?, frame: NSRect) {
+    init(_ value: MonitoredModel, spend: ModelAlertControls.Choice?, frame: NSRect) {
         model = value.model; super.init(frame: frame)
-        let name = NSTextField(labelWithString: value.model); name.frame = NSRect(x: 0, y: 6, width: 190, height: 18)
+        let name = NSTextField(labelWithString: value.model); name.frame = NSRect(x: 0, y: 6, width: 142, height: 18)
         name.font = .monospacedSystemFont(ofSize: 11, weight: .regular); name.lineBreakMode = .byTruncatingMiddle; name.toolTip = value.model; addSubview(name)
-        setSpend(spend); spent.frame = NSRect(x: 196, y: 6, width: 84, height: 18)
-        spent.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular); spent.textColor = .secondaryLabelColor; spent.alignment = .right; addSubview(spent)
-        for (field, x, micros) in [(daily, CGFloat(288), value.dailyLimitMicros), (cycle, 360, value.cycleLimitMicros)] {
-            field.frame = NSRect(x: x, y: 3, width: 66, height: 24); field.font = .systemFont(ofSize: 11); field.placeholderString = "—"; field.delegate = self
+        for (label, x) in [(daySpent, CGFloat(146)), (cycleSpent, 278)] {
+            label.frame = NSRect(x: x, y: 6, width: label === daySpent ? 58 : 62, height: 18)
+            label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular); label.textColor = .secondaryLabelColor; label.alignment = .right; addSubview(label)
+        }
+        setSpend(spend)
+        for (field, x, micros) in [(daily, CGFloat(210), value.dailyLimitMicros), (cycle, 344, value.cycleLimitMicros)] {
+            field.frame = NSRect(x: x, y: 3, width: field === daily ? 62 : 66, height: 24); field.font = .systemFont(ofSize: 11); field.placeholderString = "—"; field.delegate = self
             field.stringValue = micros.map { localizedDecimal(String(format: "%.2f", Double($0) / 1_000_000)) } ?? ""; addSubview(field)
         }
         daily.setAccessibilityLabel(L("Limite por dia de \(value.model) em US$", "\(value.model) daily limit in US$"))
@@ -133,7 +138,10 @@ import AppKit
         remove.frame = NSRect(x: 432, y: 5, width: 20, height: 20); remove.isBordered = false; remove.contentTintColor = .secondaryLabelColor; addSubview(remove)
     }
     required init?(coder: NSCoder) { fatalError() }
-    func setSpend(_ micros: Int64?) { spent.stringValue = micros.map { MenuBarPresentation.money(Double($0)) } ?? "—" }
+    func setSpend(_ spend: ModelAlertControls.Choice?) {
+        daySpent.stringValue = spend.map { MenuBarPresentation.money(Double($0.daySpendMicros)) } ?? "—"
+        cycleSpent.stringValue = spend.map { MenuBarPresentation.money(Double($0.cycleSpendMicros)) } ?? "—"
+    }
     // Empty means no limit; anything else must be a positive amount.
     func limits() -> (daily: Int64?, cycle: Int64?)? {
         var result: [Int64?] = []

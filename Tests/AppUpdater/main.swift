@@ -102,4 +102,5 @@ check(!FileManager.default.fileExists(atPath: fresh.path) && FileManager.default
 check(AppUpdater.noticeTarget("3.4.1", installed: "3.4.0") == "3.4.1", "Clicking a notice installs the version it announced")
 check(AppUpdater.noticeTarget("3.4.0", installed: "3.4.0") == nil && AppUpdater.noticeTarget("3.3.1", installed: "3.4.0") == nil, "A notice for the running or an older version installs nothing")
 check(AppUpdater.noticeTarget(nil, installed: "3.4.0") == nil && AppUpdater.noticeTarget("3.4.1", installed: "development") == nil, "Without a usable version the app falls back to a fresh check")
+check(AppUpdater.checkInterval == 3600, "A running app looks for a release every hour, not once a day")
 print("PASS: in-place update download checks, signature, quarantine refusal, atomic swap, relaunch and staging cleanup")
