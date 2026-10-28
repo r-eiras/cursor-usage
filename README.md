@@ -11,7 +11,7 @@ This is an independent project. It is not made or endorsed by Cursor (Anysphere)
 ## What it does
 
 - Shows your Cursor usage next to the clock, as a percentage, in dollars, or both.
-- Shows two numbers: **today** and the **cycle** (your plan's billing month).
+- Shows two numbers: **today** and the **cycle** (your plan's billing month). Personal plans show the share of their included usage instead.
 - Changes color as you use more: normal, then yellow, orange and red.
 - Warns you when you pass a goal, when your plan renews, and when a model spends much more than usual.
 - Updates itself.
@@ -65,7 +65,9 @@ bash install.sh
 - **Models**: which models cost the most. Sort by cost, tokens or **pace** (what a model usually spends in 15 minutes, the same number the model alerts use). Rest the pointer on one to see its details.
 - **Goal**: your spending goal and today's allowance.
 
-**Right-click** the numbers for Settings, updates, disconnect and Quit.
+**Right-click** the numbers for About, updates, Settings, disconnect and Quit.
+
+When a list or Settings has more below, its bottom fades with a small arrow.
 
 **Today** is not a Cursor limit. The app takes what is left in your cycle and divides it by the days until it renews, so you know how much you can spend today and stay on track.
 
@@ -77,7 +79,7 @@ bash install.sh
 | **Alerts** | Your spending goal, usage alerts, renewal alert, sounds and model alerts. |
 | **App** | How often to sync, language, open at login, check for updates. |
 
-Changes apply when you click **Save**.
+Changes apply when you click **Save**. While Settings is open the app also shows in the Dock and in Cmd+Tab, so you can switch apps and come back; closing Settings puts it back in the menu bar only.
 
 ### Layouts
 
@@ -97,7 +99,7 @@ Changes apply when you click **Save**.
 | 60% to 90% | orange |
 | 90% or more | red |
 
-Choose whether the **icon** follows the cycle or today, or has no color. Tick **Numbers too** to color today and the cycle, each by its own usage. Colors always follow what you **used**, even if the menu shows what is left.
+Choose whether the **icon** follows the cycle or today, or has no color. Tick **Numbers too** to color today and the cycle, each by its own usage; on a personal plan the number follows the included usage. Colors always follow what you **used**, even if the menu shows what is left.
 
 ## Alerts
 

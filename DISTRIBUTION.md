@@ -35,7 +35,7 @@ Homebrew's `--no-quarantine` option is gone: Homebrew 7.0.10 answers `Error: inv
 
 Run `python3 package_release.py` after building. Use the following release assets:
 
-- `CursorUsage-<version>-macOS-<architecture>.zip`: the user download; only the compiled app, Cursor image, bundle metadata and signature. No tests, source code, build scripts, account data, or development dependencies.
+- `CursorUsage-<version>-macOS-<architecture>.zip`: the user download; only the compiled app, the app icon, the Cursor image, bundle metadata and signature. No tests, source code, build scripts, account data, or development dependencies.
 - `CursorUsage-<version>-source.zip`: optional developer archive; includes source, tests, documentation and build tools. Users do not install this to run the app.
 - `manifest.json`: checksums for the tested files and archives.
 

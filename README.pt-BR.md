@@ -11,7 +11,7 @@ Este é um projeto independente. Não é feito nem endossado pelo Cursor (Anysph
 ## O que ele faz
 
 - Mostra seu uso do Cursor perto do relógio, em porcentagem, em dólar ou nos dois.
-- Mostra dois números: **hoje** e o **ciclo** (o mês de cobrança do seu plano).
+- Mostra dois números: **hoje** e o **ciclo** (o mês de cobrança do seu plano). Planos pessoais mostram a parte usada da cota incluída.
 - Muda de cor conforme você usa mais: normal, depois amarelo, laranja e vermelho.
 - Avisa quando você passa de uma meta, quando o plano renova e quando um modelo gasta muito mais que o normal.
 - Se atualiza sozinho.
@@ -65,7 +65,9 @@ bash install.sh
 - **Modelos**: quais modelos custam mais. Ordene por gasto, tokens ou **ritmo** (quanto o modelo costuma gastar em 15 minutos, o mesmo número dos avisos por modelo). Pare o mouse em um para ver os detalhes.
 - **Meta**: sua meta de gasto e a cota de hoje.
 
-**Clique com o botão direito** nos números para Configurações, atualizações, desconectar e Sair.
+**Clique com o botão direito** nos números para Sobre, atualizações, Configurações, desconectar e Sair.
+
+Quando uma lista ou as Configurações têm mais conteúdo abaixo, o rodapé esmaece com uma setinha.
 
 **Hoje** não é um limite do Cursor. O app pega o que sobra no ciclo e divide pelos dias até a renovação, para você saber quanto pode gastar hoje sem passar do plano.
 
@@ -77,7 +79,7 @@ bash install.sh
 | **Avisos** | Sua meta de gasto, avisos de uso, aviso de renovação, sons e avisos por modelo. |
 | **App** | De quanto em quanto tempo sincronizar, idioma, iniciar ao entrar no Mac, verificar atualizações. |
 
-As mudanças valem quando você clica em **Salvar**.
+As mudanças valem quando você clica em **Salvar**. Enquanto as Configurações estão abertas, o app aparece também no Dock e no Cmd+Tab, para você trocar de app e voltar; ao fechar, ele volta a ficar só na barra de menus.
 
 ### Visualizações
 
@@ -97,7 +99,7 @@ As mudanças valem quando você clica em **Salvar**.
 | de 60% a 90% | laranja |
 | 90% ou mais | vermelho |
 
-Escolha se o **ícone** acompanha o ciclo, o dia, ou fica sem cor. Marque **Números também** para colorir hoje e o ciclo, cada um pelo seu uso. As cores seguem sempre o que você **usou**, mesmo que o menu mostre o que sobra.
+Escolha se o **ícone** acompanha o ciclo, o dia, ou fica sem cor. Marque **Números também** para colorir hoje e o ciclo, cada um pelo seu uso; no plano pessoal, o número segue a cota incluída. As cores seguem sempre o que você **usou**, mesmo que o menu mostre o que sobra.
 
 ## Avisos
 
