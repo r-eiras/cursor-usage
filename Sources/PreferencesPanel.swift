@@ -141,7 +141,8 @@ import AppKit
     private let personalNote = NSTextField(labelWithString: "")
     private var personalPlan: String?? = nil
     var isPersonalAccount: Bool { personalPlan != nil }
-    func present(_ value: AppPreferences, providerLimitMicros: Int64? = nil, personalPlan: String?? = nil) {
+    // `bringToFront` is false when an open window only follows a change of account behind the user's back.
+    func present(_ value: AppPreferences, providerLimitMicros: Int64? = nil, personalPlan: String?? = nil, bringToFront: Bool = true) {
         self.personalPlan = personalPlan
         suspendedForMenuBar = false
         original = value
@@ -168,7 +169,8 @@ import AppKit
                                                rateUnit: value.modelRateUnit, rateAmountMicros: value.modelRateAmountMicros, rateReference: value.modelRateReference), choices: onModelChoices?() ?? [])
         models.setPaces(onModelPaces?() ?? [:]); models.personalAccount = isPersonalAccount
         refreshStartup(); changed(); window?.setContentSize(NSSize(width: 520, height: Self.fittedHeight()))
-        selectTab(); if window?.isVisible != true { window?.center() }; showWindow(nil); setDocked(true); NSApp.activate(ignoringOtherApps: true)
+        selectTab(); guard bringToFront else { return }
+        if window?.isVisible != true { window?.center() }; showWindow(nil); setDocked(true); NSApp.activate(ignoringOtherApps: true)
     }
     // While Settings is open the app is a regular one, in the Dock and in Cmd+Tab, so switching apps never loses the
     // window; closing it returns the app to the menu bar only.

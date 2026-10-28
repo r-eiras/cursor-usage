@@ -446,6 +446,8 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     }
 
     private func render(forceCard: Bool = false) {
+        // Settings left open across a change of account follow it: a personal plan and a corporate one offer different options.
+        if let panel = preferencesPanel, panel.window?.isVisible == true, panel.isPersonalAccount != (history.last?.isIncludedPercent == true) { presentPreferences(bringToFront: false) }
         preferencesPanel?.updateReadings()
         let latest = history.last, now = Date()
         let stale = latest.map { now.timeIntervalSince(lastRead) > preferences.freshnessInterval || $0.resetDate <= now } ?? false
@@ -560,6 +562,10 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             if let data = try? JSONEncoder().encode(result.known) { try? data.write(to: file, options: .atomic); try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path) }
         }
         notifications.announceModels(result.alerts, sound: preferences.alertSound)
+    }
+    private func presentPreferences(bringToFront: Bool) {
+        preferencesPanel?.present(preferences, providerLimitMicros: history.last.flatMap { $0.isIncludedPercent ? nil : Int64($0.limitCents) * 10_000 },
+                                  personalPlan: history.last?.isIncludedPercent == true ? .some(history.last?.plan) : nil, bringToFront: bringToFront)
     }
     // The same paces the alert uses: saved ones, refreshed by the current history.
     private func modelPaceValues() -> [String: Int64] {
@@ -692,10 +698,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
             }
             preferencesPanel = panel
         }
-        if preferencesPanel?.resumeIfSuspended() != true {
-            preferencesPanel?.present(preferences, providerLimitMicros: history.last.flatMap { $0.isIncludedPercent ? nil : Int64($0.limitCents) * 10_000 },
-                                     personalPlan: history.last?.isIncludedPercent == true ? .some(history.last?.plan) : nil)
-        }
+        if preferencesPanel?.resumeIfSuspended() != true { presentPreferences(bringToFront: true) }
         notifications.readPermission()
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showPreferences(); return false }

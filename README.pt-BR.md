@@ -4,7 +4,7 @@ Veja quanto do seu plano do Cursor você já usou, direto na barra de menus do M
 
 [English](README.md) · [Novidades](https://github.com/r-eiras/cursor-usage/releases/latest) · [Relatar um problema](https://github.com/r-eiras/cursor-usage/issues/new)
 
-**Versão 3.5.0 · Mac com Apple Silicon (M1 ou mais novo) · macOS 14 Sonoma ou mais novo · gratuito e de código aberto**
+**Versão 3.5.1 · Mac com Apple Silicon (M1 ou mais novo) · macOS 14 Sonoma ou mais novo · gratuito e de código aberto**
 
 Este é um projeto independente. Não é feito nem endossado pelo Cursor (Anysphere).
 

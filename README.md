@@ -4,7 +4,7 @@ See how much of your Cursor plan you have used, right in the Mac menu bar.
 
 [Português (Brasil)](README.pt-BR.md) · [What's new](https://github.com/r-eiras/cursor-usage/releases/latest) · [Report a problem](https://github.com/r-eiras/cursor-usage/issues/new)
 
-**Version 3.5.0 · Apple Silicon Mac (M1 or later) · macOS 14 Sonoma or later · free and open source**
+**Version 3.5.1 · Apple Silicon Mac (M1 or later) · macOS 14 Sonoma or later · free and open source**
 
 This is an independent project. It is not made or endorsed by Cursor (Anysphere).
 

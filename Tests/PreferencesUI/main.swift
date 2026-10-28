@@ -273,6 +273,10 @@ MainActor.assumeIsolated {
         panel.present(AppPreferences())
         check(!panel.isPersonalAccount && note?.isHidden == true && popups[0].isEnabled && goal?.isEnabled == true, "A corporate account gets every option back")
         check(NSApp.activationPolicy() == .regular, "While Settings is open the app is in the Dock and in Cmd+Tab")
+        panel.present(AppPreferences(), personalPlan: .some("Free"), bringToFront: false)
+        check(panel.isPersonalAccount && popups[2].item(at: 0)?.isEnabled == false && panel.window?.isVisible == true, "An open window follows a switch to a personal account in place")
+        panel.present(AppPreferences(), bringToFront: false)
+        check(!panel.isPersonalAccount && popups[0].isEnabled && popups[2].item(at: 0)?.isEnabled == true, "And back to a corporate one, without reopening")
         boxes.first { $0.title == L("Cancelar", "Cancel") }!.performClick(nil)
         check(NSApp.activationPolicy() == .accessory && panel.window?.isVisible == false, "Closing Settings returns the app to the menu bar only")
     }
