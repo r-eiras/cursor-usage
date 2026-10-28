@@ -54,6 +54,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
         test('PreferencesUI',['Usage.swift','Analytics.swift','Preferences.swift','LoginItemManager.swift','CursorAlertControls.swift','ModelAlertControls.swift','CursorMark.swift','SettingsStyle.swift','NotificationAdvice.swift','PreferencesPanel.swift'],['AppKit','ServiceManagement','UserNotifications'])
         test('SessionCookies',[],['AppKit','WebKit'])
         test('StatusMenu',['StatusMenu.swift','StatusItemPlacement.swift'],['AppKit'])
+        test('AboutUI',['ReleaseUpdates.swift','AboutWindow.swift'],['AppKit'])
         test('BrowserButton',['BrowserSignInButton.swift'],['AppKit'])
         test('CardUI',['Usage.swift','Analytics.swift','Preferences.swift','QuotaPace.swift','CursorMark.swift','SettingsStyle.swift','QuotaCard.swift'],['AppKit'])
         test('WebView',['Usage.swift'],['AppKit','WebKit'])
@@ -76,7 +77,7 @@ with tempfile.TemporaryDirectory(prefix='cursor-usage-build-') as temporary:
             run('sips','-z',str(points*scale),str(points*scale),str(root/'Assets/AppIcon.png'),'--out',str(iconset/name))
     run('iconutil','-c','icns',str(iconset),'-o',str(resources/'AppIcon.icns'))
     with (app/'Contents/Info.plist').open('wb') as output:
-        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleIconFile':'AppIcon','CFBundleShortVersionString':'3.4.6','CFBundleVersion':'22','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
+        plistlib.dump({'CFBundleExecutable':'CursorUsage','CFBundleIdentifier':'local.cursorusage.CursorUsage','CFBundleName':'Cursor Usage','CFBundleDisplayName':'Cursor Usage','CFBundlePackageType':'APPL','CFBundleIconFile':'AppIcon','CFBundleShortVersionString':'3.4.7','CFBundleVersion':'23','CFBundleDevelopmentRegion':'en','CFBundleLocalizations':['en','pt-BR'],'LSUIElement':True,'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True},output)
     run('codesign','--force','--sign','-',str(app))
     # Replace the bundle atomically; never overwrite a running signed executable.
     destination = root/'Cursor Usage.app'

@@ -28,6 +28,7 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     // Models this account has used, so a first use can be told apart; nil until the first import.
     private var knownModels: Set<String>?
     private var modelPaces: [String: ModelAlerts.Baseline] = [:]
+    private var aboutWindow: AboutWindow?
     private var lastModelEvaluation: Date?
     private var isSignedOut = false
     private var signingOut = false
@@ -467,25 +468,9 @@ final class CursorUsageApp: NSObject, NSApplicationDelegate, WKNavigationDelegat
     @objc private func showAbout() {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        if aboutWindow == nil { aboutWindow = AboutWindow(version: version, build: build, icon: NSApp.applicationIconImage) }
         NSApp.activate(ignoringOtherApps: true)
-        // Centered lines with room between them, so each link is easy to read and to click; the author stands apart.
-        let style = NSMutableParagraphStyle(); style.alignment = .center; style.paragraphSpacing = 7
-        let font = NSFont.systemFont(ofSize: 11)
-        let credits = NSMutableAttributedString(string: L("Consumo do Cursor na barra de menus.\nProjeto independente, sem vínculo com a Anysphere.\n\n", "Cursor usage in the menu bar.\nIndependent project, not affiliated with Anysphere.\n\n"),
-                                                attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: style])
-        credits.append(NSAttributedString(string: L("Criado por ", "Created by "), attributes: [.font: font, .foregroundColor: NSColor.labelColor, .paragraphStyle: style]))
-        credits.append(NSAttributedString(string: ProjectLinks.author, attributes: [.font: NSFont.systemFont(ofSize: 11, weight: .semibold), .link: ProjectLinks.authorProfile, .paragraphStyle: style]))
-        credits.append(NSAttributedString(string: "\n\n", attributes: [.font: font, .paragraphStyle: style]))
-        let links = [(L("Código no GitHub", "Source on GitHub"), ProjectLinks.repository), (L("Novidades das versões", "Release notes"), ProjectLinks.releases),
-                     (L("Reportar problema", "Report an issue"), ProjectLinks.issues), (L("Licença MIT", "MIT license"), ProjectLinks.license)]
-        for (index, (title, url)) in links.enumerated() {
-            credits.append(NSAttributedString(string: title, attributes: [.font: font, .link: url, .paragraphStyle: style]))
-            if index < links.count - 1 { credits.append(NSAttributedString(string: "\n", attributes: [.font: font, .paragraphStyle: style])) }
-        }
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .applicationName: ProjectLinks.name, .applicationVersion: version, .version: build,
-            .applicationIcon: CursorMark.appImage(size: 96, template: false), .credits: credits
-        ])
+        aboutWindow?.window?.center(); aboutWindow?.showWindow(nil); aboutWindow?.window?.makeKeyAndOrderFront(nil)
     }
     @objc private func reportIssue() { NSWorkspace.shared.open(ProjectLinks.issues) }
     @objc private func checkForUpdates() {

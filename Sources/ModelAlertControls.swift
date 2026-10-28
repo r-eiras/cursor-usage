@@ -22,7 +22,7 @@ import AppKit
     private let footnote = NSTextField(wrappingLabelWithString: "")
     private var rows: [LimitRow] = []
     private var choices: [Choice] = []
-    private static let listTop: CGFloat = 262, rowHeight: CGFloat = 30
+    private static let listTop: CGFloat = 306, rowHeight: CGFloat = 30
     override var isFlipped: Bool { true }
 
     init() {
@@ -40,13 +40,15 @@ import AppKit
         rateAbove.stringValue = L("acima de", "above"); rateAbove.frame = NSRect(x: 164, y: 125, width: 58, height: 16); rateAbove.font = .systemFont(ofSize: 12); rateAbove.textColor = .secondaryLabelColor
         rateReference.frame = NSRect(x: 222, y: 120, width: 230, height: 26)
         for popup in [rateUnit, rateReference] { popup.font = .systemFont(ofSize: 12); popup.target = self; popup.action = #selector(rateChanged) }
-        SettingsStyle.note(L("Compara os últimos 15 minutos de cada modelo com os 15 minutos típicos da referência nos últimos 14 dias. Se a referência sair do histórico, vale o último ritmo guardado.", "Compares each model's last 15 minutes with the reference's usual 15 minutes over the past 14 days. If the reference leaves the history, its last saved pace is used."), in: self, x: 22, y: 182, width: 430, height: 30)
-        SettingsStyle.header(L("Modelos monitorados", "Monitored models"), in: self, x: 0, y: 218, size: 12)
+        SettingsStyle.note(L("Compara os últimos 15 minutos de cada modelo com os 15 minutos típicos da referência nos últimos 14 dias. Se a referência sair do histórico, vale o último ritmo guardado.", "Compares each model's last 15 minutes with the reference's usual 15 minutes over the past 14 days. If the reference leaves the history, its last saved pace is used."), in: self, x: 22, y: 182, width: 430, height: 46)
+        // A line and some room keep the pace alert apart from the monitored models below it.
+        SettingsStyle.separator(in: self, x: 0, y: 244)
+        SettingsStyle.header(L("Modelos monitorados", "Monitored models"), in: self, x: 0, y: 260, size: 12)
         // Each amount sits beside its own limit, so the cycle total is not mistaken for today's spend.
         for (title, x, width, align) in [(L("Modelo", "Model"), CGFloat(0), CGFloat(142), NSTextAlignment.left), (L("Hoje", "Today"), 146, 58, .right),
                                          (L("Limite/dia", "Limit/day"), 210, 62, .left), (L("No ciclo", "This cycle"), 278, 62, .right),
                                          (L("Limite/ciclo", "Limit/cycle"), 344, 66, .left)] {
-            let label = NSTextField(labelWithString: title); label.frame = NSRect(x: x, y: 242, width: width, height: 16)
+            let label = NSTextField(labelWithString: title); label.frame = NSRect(x: x, y: 286, width: width, height: 16)
             label.font = .systemFont(ofSize: 11); label.textColor = .secondaryLabelColor; label.alignment = align; addSubview(label)
         }
         empty.stringValue = L("Nenhum modelo monitorado. Escolha um com o botão abaixo.", "No monitored models. Pick one with the button below.")

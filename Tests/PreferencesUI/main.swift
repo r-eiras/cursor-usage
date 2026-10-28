@@ -190,6 +190,11 @@ MainActor.assumeIsolated {
         check(amounts[0].frame.maxX < limits[0].frame.minX && limits[0].frame.maxX < amounts[1].frame.minX && amounts[1].frame.maxX < limits[1].frame.minX, "Each amount sits just before its own limit")
         let headers = models.subviews.compactMap { $0 as? NSTextField }.map(\.stringValue)
         check(headers.contains(L("Hoje", "Today")) && headers.contains(L("No ciclo", "This cycle")), "The columns name today and the cycle")
+        let labels = models.subviews.compactMap { $0 as? NSTextField }
+        let monitoredHeader = labels.first { $0.stringValue == L("Modelos monitorados", "Monitored models") }!
+        let paceNote = labels.first { $0.stringValue.hasPrefix(L("Compara os últimos 15 minutos", "Compares each model's last 15 minutes")) }!
+        check(paceNote.frame.height >= paceNote.cell!.cellSize(forBounds: NSRect(x: 0, y: 0, width: paceNote.frame.width, height: 1000)).height, "The pace note is shown in full")
+        check(monitoredHeader.frame.minY - paceNote.frame.maxY >= 24, "Monitored models start well apart from the pace alert")
         check(models.draft()?.monitored == [MonitoredModel(model: "gemini-argon", dailyLimitMicros: 20_500_000, cycleLimitMicros: nil)], "Updating the spend keeps the limits being typed")
         fields()[1].stringValue = "50"
         let rate = models.subviews.compactMap { $0 as? NSButton }.first { $0.title == L("Avisar quando um modelo gastar muito acima da referência", "Notify when a model spends far above the reference") }!
