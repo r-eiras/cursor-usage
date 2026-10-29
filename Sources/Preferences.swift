@@ -71,6 +71,7 @@ struct AppPreferences: Codable {
     private var storedModelRateUnit: RateThresholdUnit?
     private var storedModelRateAmountMicros: Int64?
     private var storedModelRateReference: String?
+    private var storedExcludeWeekends: Bool?
     var menuIconStyle: MenuIconStyle { get { storedMenuIconStyle ?? .app } set { storedMenuIconStyle = newValue } }
     var showDetailedLabels: Bool { get { storedShowDetailedLabels ?? true } set { storedShowDetailedLabels = newValue } }
     var menuOpenBehavior: MenuOpenBehavior { get { storedMenuOpenBehavior ?? .hoverAndClick } set { storedMenuOpenBehavior = newValue } }
@@ -92,6 +93,13 @@ struct AppPreferences: Codable {
     var modelRateAmountMicros: Int64 { get { storedModelRateAmountMicros ?? 1_000_000 } set { storedModelRateAmountMicros = min(100_000_000_000, max(10_000, newValue)) } }
     // nil compares with the costliest model; a name compares with that model, even after it leaves the history.
     var modelRateReference: String? { get { storedModelRateReference } set { storedModelRateReference = newValue?.isEmpty == true ? nil : newValue } }
+    // On by default: the daily allowance and pace count weekdays only. Off, every calendar day shares the quota.
+    var excludeWeekends: Bool {
+        get { storedExcludeWeekends ?? true }
+        set { if newValue != excludeWeekends { weekendChoiceChangedAt = Date() }; storedExcludeWeekends = newValue }
+    }
+    // When the user last changed the weekend choice; the reminder to leave weekends out waits a day after it.
+    var weekendChoiceChangedAt: Date?
     var freshnessInterval: TimeInterval { max(600, syncInterval.seconds + 60) }
     var menuMode: MenuDisplayMode = .percentage
     var showIcon = true
@@ -122,6 +130,8 @@ struct BudgetAssessment {
     let dailyDataFresh: Bool
     // A personal plan's reading: shares of its included usage, with no dollars and no daily figures.
     var isIncludedPercent = false
+    // A weekend day when the user keeps weekends out of the quota: no daily allowance and no daily alert.
+    var isRestDay = false
     var fraction: Double { Double(spentMicros) / Double(targetMicros) }
     var overDailyLimit: Bool { guard let todaySpentMicros, let dailyLimitMicros else { return false }; return Double(todaySpentMicros) > dailyLimitMicros }
 }
@@ -146,22 +156,25 @@ enum BudgetEngine {
         let target = preferences.personalBudgetEnabled ? preferences.personalBudgetMicros : Int64(quota.limitCents) * 10_000
         guard target > 0 else { return nil }
         let spent = Int64(quota.spentCents) * 10_000
-        let today = calendar.startOfDay(for: now)
-        let days = max(1, calendar.dateComponents([.day], from: today, to: reset).day ?? 1)
-        let cycleDays = max(1, calendar.dateComponents([.day], from: start, to: reset).day ?? 1)
+        // With weekends excluded the days below are weekdays: a weekend day has no allowance, and what it spends
+        // comes out of the balance the following weekdays share.
+        let weekends = preferences.excludeWeekends
+        let restDay = weekends && calendar.isDateInWeekend(now)
+        let days = max(1, Workdays.count(from: now, to: reset, excludeWeekends: weekends, calendar: calendar))
+        let cycleDays = max(1, Workdays.count(from: start, to: reset, excludeWeekends: weekends, calendar: calendar))
         let todayReport = dataset.flatMap { AnalyticsEngine.report(dataset: $0, selection: PeriodSelection(preset: .today), quota: nil, now: now, calendar: calendar) }
         let todaySpent = todayReport?.costMicros
-        let dailyLimit = todaySpent.map { Double(max(0, target - max(0, spent - $0))) / Double(days) }
+        let dailyLimit = restDay ? nil : todaySpent.map { Double(max(0, target - max(0, spent - $0))) / Double(days) }
         let recentReport = dataset.flatMap { AnalyticsEngine.report(dataset: $0, selection: PeriodSelection(preset: .last7), quota: nil, now: now, calendar: calendar) }
-        let rate = recentReport.map { Double($0.costMicros) / max(1.0 / 24, now.timeIntervalSince($0.interval.start) / 86400) }
+        let rate = recentReport.map { Double($0.costMicros) / max(1.0 / 24, Workdays.seconds(from: $0.interval.start, to: now, excludeWeekends: weekends, calendar: calendar) / 86400) }
         let formatter = DateFormatter(); formatter.calendar = calendar; formatter.timeZone = calendar.timeZone; formatter.dateFormat = "yyyy-MM-dd"
         return BudgetAssessment(targetMicros: target, spentMicros: spent, remainingMicros: max(0, target - spent), cycle: DateInterval(start: start, end: reset), remainingDays: days,
             plannedDailyMicros: Double(target) / Double(cycleDays), recommendedDailyMicros: Double(max(0, target - spent)) / Double(days), dailyLimitMicros: dailyLimit,
             todaySpentMicros: todaySpent, remainingTodayMicros: todaySpent.flatMap { value in dailyLimit.map { max(0, $0 - Double(value)) } },
             recentDailyMicros: rate, requiredSavingMicros: max(0, (rate ?? 0) - Double(max(0, target - spent)) / Double(days)),
-            projectedCycleMicros: rate.map { Double(spent) + $0 * reset.timeIntervalSince(now) / 86400 },
+            projectedCycleMicros: rate.map { Double(spent) + $0 * Workdays.seconds(from: now, to: reset, excludeWeekends: weekends, calendar: calendar) / 86400 },
             cycleKey: String(Int(quota.resetDate.timeIntervalSince1970)), dayKey: formatter.string(from: now),
-            dailyDataFresh: dataset.map { now.timeIntervalSince($0.fetchedAt) <= preferences.freshnessInterval } ?? false)
+            dailyDataFresh: dataset.map { now.timeIntervalSince($0.fetchedAt) <= preferences.freshnessInterval } ?? false, isRestDay: restDay)
     }
 }
 
@@ -176,8 +189,9 @@ struct MenuBarPresentation {
     var parts: [Part] = []
     // The fraction the icon color follows, or nil when coloring is off or the day's figures are not fresh.
     // A personal plan has no daily figure, so a day basis follows its included usage instead.
-    var isIncludedPercent = false
-    func iconUsage(_ basis: IconColorBasis) -> Double? { basis == .cycle || (basis == .day && isIncludedPercent) ? usedFraction : basis == .day ? usedTodayFraction : nil }
+    // A weekend kept out of the quota has no daily figure either, so it does the same.
+    var isIncludedPercent = false, isRestDay = false
+    func iconUsage(_ basis: IconColorBasis) -> Double? { basis == .cycle || (basis == .day && (isIncludedPercent || isRestDay)) ? usedFraction : basis == .day ? usedTodayFraction : nil }
     static func money(_ micros: Double) -> String {
         let formatter = NumberFormatter(); formatter.locale = AppLanguage.locale; formatter.numberStyle = .currency; formatter.currencyCode = "USD"
         return formatter.string(from: NSNumber(value: micros / 1_000_000)) ?? "—"
@@ -221,12 +235,12 @@ struct MenuBarPresentation {
         let title = parts.map(\.text).joined()
         return MenuBarPresentation(title: title,
             tooltip: "\(L("Hoje", "Today")): \(dailyContent) \(qualifier)\n\(L("Cota diária calculada", "Calculated daily allowance")): \(freshDaily ? budget?.dailyLimitMicros.map(money) ?? "—" : "—")\n\(L("Ciclo da assinatura", "Subscription cycle")): \(amount) \(qualifier)\n\(percent) \(L("do limite do ciclo", "of the cycle limit")): \(denominator.map(money) ?? L("indisponível", "unavailable"))\n\(preferences.personalBudgetEnabled ? L("Referência: sua meta pessoal", "Reference: your personal goal") : L("Referência: cota oficial", "Reference: official quota"))", fraction: fraction,
-            usedFraction: usedFraction, usedTodayFraction: usedTodayFraction, parts: parts)
+            usedFraction: usedFraction, usedTodayFraction: usedTodayFraction, parts: parts, isRestDay: budget?.isRestDay == true)
     }
 }
 
 struct BudgetAlert {
-    enum Kind { case cycle, daily, renewal, window, newModel, modelRate, modelLimit }
+    enum Kind { case cycle, daily, renewal, window, newModel, modelRate, modelLimit, weekend }
     let id: String
     let kind: Kind
     let title: String
@@ -269,5 +283,33 @@ enum BudgetAlerts {
             }
         }
         return result
+    }
+}
+
+// Weekend notices need no alert turned on, since weekends leave the daily quota by default: the app says so once,
+// once per weekend with usage while they are left out, and once a day after the user starts counting them again.
+enum WeekendNotices {
+    static let prefix = "weekend-notice:"
+    static func candidates(assessment: BudgetAssessment, preferences: AppPreferences, delivered: Set<String>, now: Date, calendar: Calendar = .current) -> [BudgetAlert] {
+        guard !assessment.isIncludedPercent else { return [] }
+        let settings = L("Configurações → Avisos", "Settings → Alerts")
+        var result: [BudgetAlert] = []
+        if preferences.excludeWeekends {
+            result.append(BudgetAlert(id: prefix + "excluded", kind: .weekend, title: L("Cota diária sem fins de semana", "Daily quota without weekends"),
+                body: L("A cota diária e o ritmo contam só dias úteis. Para incluir sábado e domingo, desmarque a opção em \(settings).",
+                        "The daily quota and pace count weekdays only. To include Saturday and Sunday, turn the option off in \(settings).")))
+            if assessment.isRestDay, assessment.dailyDataFresh, let spent = assessment.todaySpentMicros, spent > 0,
+               let weekend = calendar.dateIntervalOfWeekend(containing: now) {
+                let money = MenuBarPresentation.money(Double(spent))
+                result.append(BudgetAlert(id: prefix + "used:\(Int(weekend.start.timeIntervalSince1970))", kind: .weekend, title: L("Uso no fim de semana", "Weekend usage"),
+                    body: L("\(money) hoje. Fins de semana não entram na cota diária; o gasto sai do saldo dos dias úteis. Para contá-los, desmarque a opção em \(settings).",
+                            "\(money) today. Weekends are not in the daily quota; the spending comes out of the weekdays' balance. To count them, turn the option off in \(settings).")))
+            }
+        } else if let changed = preferences.weekendChoiceChangedAt, now.timeIntervalSince(changed) >= 86400 {
+            result.append(BudgetAlert(id: prefix + "counted:\(Int(changed.timeIntervalSince1970))", kind: .weekend, title: L("Fins de semana na cota diária", "Weekends in the daily quota"),
+                body: L("A cota diária divide o saldo também por sábado e domingo. Se você não usa o Cursor nesses dias, ligue Excluir fins de semana em \(settings).",
+                        "The daily quota also spreads the balance over Saturday and Sunday. If you do not use Cursor on those days, turn on Exclude weekends in \(settings).")))
+        }
+        return result.filter { !delivered.contains($0.id) }
     }
 }

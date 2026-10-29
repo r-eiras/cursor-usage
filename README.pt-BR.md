@@ -4,7 +4,7 @@ Veja quanto do seu plano do Cursor você já usou, direto na barra de menus do M
 
 [English](README.md) · [Novidades](https://github.com/r-eiras/cursor-usage/releases/latest) · [Relatar um problema](https://github.com/r-eiras/cursor-usage/issues/new)
 
-**Versão 3.5.2 · Mac com Apple Silicon (M1 ou mais novo) · macOS 14 Sonoma ou mais novo · gratuito e de código aberto**
+**Versão 3.6.0 · Mac com Apple Silicon (M1 ou mais novo) · macOS 14 Sonoma ou mais novo · gratuito e de código aberto**
 
 Este é um projeto independente. Não é feito nem endossado pelo Cursor (Anysphere).
 
@@ -63,7 +63,7 @@ bash install.sh
 
 - **Resumo**: quanto você gastou no período e em que ritmo.
 - **Modelos**: quais modelos custam mais. Ordene por gasto, tokens ou **ritmo** (quanto o modelo costuma gastar em 15 minutos, o mesmo número dos avisos por modelo). Pare o mouse em um para ver os detalhes.
-- **Meta**: sua meta de gasto e a cota de hoje.
+- **Meta**: sua meta de gasto e a cota de hoje. Fins de semana ficam de fora: a cota e o ritmo contam só dias úteis, e sábado e domingo ficam sem cota e sem aviso diário. Para contá-los, desmarque **Excluir fins de semana da cota diária** em Configurações → Avisos.
 
 **Clique com o botão direito** nos números para Sobre, atualizações, Configurações, desconectar e Sair.
 
@@ -108,6 +108,8 @@ As notificações só funcionam com o app aberto.
 **Avisos de uso** (desligados até você ligar):
 - Quando você chega a uma parte do ciclo ou da cota de hoje.
 - Quando o plano renova.
+
+**Avisos de fim de semana** (já vêm ligados): uma vez para dizer que fins de semana ficam de fora, uma vez por fim de semana em que você usa o Cursor, e uma vez um dia depois de você voltar a contar fins de semana.
 
 **Avisos por modelo** (já vêm ligados):
 - **Modelo novo**: na primeira vez que você usa um modelo.

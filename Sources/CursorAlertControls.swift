@@ -9,11 +9,12 @@ struct QuotaAlertDraft {
     var dailyPercent: Double = 100
     var sound = false
     var renewal = false
+    var excludeWeekends = true
 }
 
 // Cursor spending goals, daily allowance and native alerts.
 @MainActor final class CursorAlertControls: NSView, NSTextFieldDelegate {
-    static let height: CGFloat = 438
+    static let height: CGFloat = 488
     var onChange: (() -> Void)?
     private var initial = QuotaAlertDraft()
     private var officialLimit: Double?
@@ -31,6 +32,7 @@ struct QuotaAlertDraft {
     private let dailyDescription = NSTextField(wrappingLabelWithString: "")
     private let sound = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let renewal = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let weekends = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     override var isFlipped: Bool { true }
 
     init() {
@@ -48,29 +50,32 @@ struct QuotaAlertDraft {
         limit.placeholderString = L("Ex.: 500,00", "E.g. 500.00")
         limit.delegate = self; addSubview(limit)
         SettingsStyle.note(L("Não altera o limite contratado com o Cursor.", "Does not change your Cursor plan limit."), in: self, x: 130, y: 82, width: 322)
-        SettingsStyle.separator(in: self, x: 0, y: 110)
-        SettingsStyle.header(L("Avisos de consumo", "Usage alerts"), in: self, x: 0, y: 124)
+        weekends.title = L("Excluir fins de semana da cota diária", "Exclude weekends from the daily quota")
+        weekends.frame = NSRect(x: 0, y: 108, width: 452, height: 22)
+        SettingsStyle.note(L("A cota e o ritmo contam só dias úteis; sábado e domingo ficam sem cota e sem aviso diário.", "The quota and pace count weekdays only; Saturday and Sunday get no daily quota or alert."), in: self, x: 22, y: 132, width: 430)
+        SettingsStyle.separator(in: self, x: 0, y: 160)
+        SettingsStyle.header(L("Avisos de consumo", "Usage alerts"), in: self, x: 0, y: 174)
         cycle.title = L("Avisar ao consumir 80% do limite", "Notify at 80% of the limit")
-        cycle.frame = NSRect(x: 0, y: 152, width: 452, height: 22)
-        cycleThreshold.frame = NSRect(x: 22, y: 180, width: 200, height: 22)
-        cycleDescription.frame = NSRect(x: 236, y: 180, width: 216, height: 22); cycleDescription.font = .systemFont(ofSize: 11)
-        SettingsStyle.note(L("Usa seu limite pessoal ou a cota do Cursor.", "Uses your personal limit or the Cursor allowance."), in: self, x: 22, y: 206, width: 430)
+        cycle.frame = NSRect(x: 0, y: 202, width: 452, height: 22)
+        cycleThreshold.frame = NSRect(x: 22, y: 230, width: 200, height: 22)
+        cycleDescription.frame = NSRect(x: 236, y: 230, width: 216, height: 22); cycleDescription.font = .systemFont(ofSize: 11)
+        SettingsStyle.note(L("Usa seu limite pessoal ou a cota do Cursor.", "Uses your personal limit or the Cursor allowance."), in: self, x: 22, y: 256, width: 430)
         daily.title = L("Notificar ao atingir esta % da cota diária", "Notify at this % of the daily allowance")
-        daily.frame = NSRect(x: 0, y: 234, width: 452, height: 22)
-        dailyThreshold.frame = NSRect(x: 22, y: 262, width: 160, height: 24)
-        dailyRatio.frame = NSRect(x: 190, y: 263, width: 50, height: 22); dailyRatio.font = .systemFont(ofSize: 11)
-        label("US$", 246, 263, 30)
-        dailyAmount.frame = NSRect(x: 278, y: 262, width: 150, height: 24); dailyAmount.delegate = self
+        daily.frame = NSRect(x: 0, y: 284, width: 452, height: 22)
+        dailyThreshold.frame = NSRect(x: 22, y: 312, width: 160, height: 24)
+        dailyRatio.frame = NSRect(x: 190, y: 313, width: 50, height: 22); dailyRatio.font = .systemFont(ofSize: 11)
+        label("US$", 246, 313, 30)
+        dailyAmount.frame = NSRect(x: 278, y: 312, width: 150, height: 24); dailyAmount.delegate = self
         dailyAmount.placeholderString = L("Após sincronizar", "After syncing")
         dailyAmount.toolTip = L("O aviso acompanha a cota diária calculada sem alterar sua meta.", "The alert follows the calculated daily quota without changing your goal.")
-        dailyDescription.frame = NSRect(x: 22, y: 292, width: 430, height: 44); dailyDescription.font = .systemFont(ofSize: 11)
+        dailyDescription.frame = NSRect(x: 22, y: 342, width: 430, height: 44); dailyDescription.font = .systemFont(ofSize: 11)
         dailyDescription.textColor = .secondaryLabelColor
-        SettingsStyle.separator(in: self, x: 0, y: 344)
-        SettingsStyle.header(L("Notificações", "Notifications"), in: self, x: 0, y: 358)
-        sound.title = L("Tocar som junto às notificações", "Play a sound with notifications"); sound.frame = NSRect(x: 0, y: 386, width: 452, height: 22)
+        SettingsStyle.separator(in: self, x: 0, y: 394)
+        SettingsStyle.header(L("Notificações", "Notifications"), in: self, x: 0, y: 408)
+        sound.title = L("Tocar som junto às notificações", "Play a sound with notifications"); sound.frame = NSRect(x: 0, y: 436, width: 452, height: 22)
         renewal.title = L("Avisar quando uma cota for renovada", "Alert when a quota renews")
-        renewal.frame = NSRect(x: 0, y: 412, width: 452, height: 22)
-        for control in [personal, cycle, daily, sound, renewal] {
+        renewal.frame = NSRect(x: 0, y: 462, width: 452, height: 22)
+        for control in [personal, weekends, cycle, daily, sound, renewal] {
             control.font = .systemFont(ofSize: 12); control.target = self; control.action = #selector(changed); addSubview(control)
         }
         for control in [cycleThreshold, dailyThreshold] { control.target = self; control.action = #selector(changed); addSubview(control) }
@@ -85,13 +90,15 @@ struct QuotaAlertDraft {
         cycle.state = value.cycleEnabled ? .on : .off; cycleThreshold.integerValue = value.cyclePercent
         daily.state = value.dailyEnabled ? .on : .off; dailyThreshold.doubleValue = value.dailyPercent
         sound.state = value.sound ? .on : .off; renewal.state = value.renewal ? .on : .off
+        weekends.state = value.excludeWeekends ? .on : .off
         refreshAppearance()
     }
-    // A personal account has no dollar quota or daily allowance: the goal and the daily alert are kept but not offered.
+    // A personal account has no dollar quota or daily allowance: the goal, the daily alert and the weekend choice are kept but not offered.
     var personalAccount = false {
         didSet {
             personal.state = personalAccount ? .off : (initial.personalEnabled ? .on : .off)
-            daily.state = personalAccount ? .off : (initial.dailyEnabled ? .on : .off); refreshAppearance()
+            daily.state = personalAccount ? .off : (initial.dailyEnabled ? .on : .off)
+            weekends.state = personalAccount ? .off : (initial.excludeWeekends ? .on : .off); refreshAppearance()
         }
     }
     func draft() -> QuotaAlertDraft? {
@@ -105,9 +112,10 @@ struct QuotaAlertDraft {
         value.cycleEnabled = cycle.state == .on; value.cyclePercent = cycleThreshold.integerValue
         value.dailyEnabled = personalAccount ? initial.dailyEnabled : daily.state == .on; value.dailyPercent = dailyThreshold.doubleValue
         value.sound = sound.state == .on; value.renewal = renewal.state == .on
+        value.excludeWeekends = personalAccount ? initial.excludeWeekends : weekends.state == .on
         return value
     }
-    func setAssessment(allowance: Double?, todayUsed: Double?, observedSince: Date?) {
+    func setAssessment(allowance: Double?, todayUsed: Double?, observedSince: Date?, restDay: Bool = false) {
         self.allowance = allowance
         if let allowance {
             dailyDescription.stringValue = L("Cota diária calculada: ", "Calculated daily quota: ") + format(allowance)
@@ -116,7 +124,8 @@ struct QuotaAlertDraft {
                 let formatter = DateFormatter(); formatter.locale = AppLanguage.locale; formatter.timeStyle = .short
                 dailyDescription.stringValue += L("\nObservado desde \(formatter.string(from: since)); sem consumo retroativo.", "\nObserved since \(formatter.string(from: since)); no retroactive usage.")
             }
-        } else { dailyDescription.stringValue = L("Sincronize a cota para calcular o valor diário. Os avisos são opcionais.", "Sync the quota to calculate the daily amount. Alerts are optional.") }
+        } else if restDay { dailyDescription.stringValue = L("Fim de semana: sem cota diária hoje. O gasto sai do saldo dos dias úteis.", "Weekend: no daily quota today. Spending comes out of the weekdays' balance.") }
+        else { dailyDescription.stringValue = L("Sincronize a cota para calcular o valor diário. Os avisos são opcionais.", "Sync the quota to calculate the daily amount. Alerts are optional.") }
         refreshAppearance()
     }
     private func number(_ text: String) -> Double? { SettingsStyle.dollars(text) }
@@ -124,7 +133,7 @@ struct QuotaAlertDraft {
         MenuBarPresentation.money(value * 1_000_000)
     }
     private func refreshAppearance() {
-        personal.isEnabled = !personalAccount; daily.isEnabled = !personalAccount
+        personal.isEnabled = !personalAccount; daily.isEnabled = !personalAccount; weekends.isEnabled = !personalAccount
         limit.isEnabled = !personalAccount && personal.state == .on; cycleThreshold.isEnabled = cycle.state == .on
         dailyThreshold.isEnabled = !personalAccount && daily.state == .on; dailyAmount.isEnabled = !personalAccount && daily.state == .on && (allowance ?? 0) > 0
         sound.isEnabled = cycle.state == .on || daily.state == .on || renewal.state == .on

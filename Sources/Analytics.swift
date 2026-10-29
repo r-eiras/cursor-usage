@@ -153,6 +153,31 @@ struct ModelUsage {
     var output: Int64 = 0
 }
 
+// Weekdays only, for users who keep weekends out of their quota; which days are the weekend follows the region.
+enum Workdays {
+    // Days from the start of `from`'s day up to `to` that count: all of them, or only weekdays.
+    static func count(from: Date, to: Date, excludeWeekends: Bool, calendar: Calendar) -> Int {
+        var day = calendar.startOfDay(for: from), result = 0
+        while day < to {
+            if !excludeWeekends || !calendar.isDateInWeekend(day) { result += 1 }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return result
+    }
+    // Seconds between two moments that count: all of them, or only those on weekdays.
+    static func seconds(from: Date, to: Date, excludeWeekends: Bool, calendar: Calendar) -> TimeInterval {
+        guard excludeWeekends else { return max(0, to.timeIntervalSince(from)) }
+        var day = calendar.startOfDay(for: from), result: TimeInterval = 0
+        while day < to {
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            if !calendar.isDateInWeekend(day) { result += max(0, min(next, to).timeIntervalSince(max(day, from))) }
+            day = next
+        }
+        return result
+    }
+}
+
 struct DailyUsage { let date: Date; let costMicros: Int64 }
 struct UsageProjection {
     let dailyMicros: Double
@@ -174,7 +199,7 @@ struct AnalyticsReport {
 }
 
 enum AnalyticsEngine {
-    static func report(dataset: UsageDataset, selection: PeriodSelection, quota: UsageSnapshot?, now: Date, calendar: Calendar = .current) -> AnalyticsReport? {
+    static func report(dataset: UsageDataset, selection: PeriodSelection, quota: UsageSnapshot?, now: Date, calendar: Calendar = .current, excludeWeekends: Bool = false) -> AnalyticsReport? {
         guard let interval = selection.interval(now: now, calendar: calendar),
               dataset.coverageStart <= interval.start, dataset.coverageEnd >= min(now, interval.end) else { return nil }
         let rows = dataset.events.filter { $0.date >= interval.start && $0.date < interval.end && $0.date <= now }
@@ -198,20 +223,21 @@ enum AnalyticsEngine {
         let cost = rows.reduce(Int64(0)) { $0 + $1.costMicros }
         var projection: UsageProjection?
         if let quota, !quota.isIncludedPercent {
-            let exposureDays = max(1.0 / 24, min(now, interval.end).timeIntervalSince(interval.start) / 86400)
+            // With weekends excluded, every figure here is per weekday: weekend spending still counts, spread over weekdays.
+            let exposureDays = max(1.0 / 24, Workdays.seconds(from: interval.start, to: min(now, interval.end), excludeWeekends: excludeWeekends, calendar: calendar) / 86400)
             let rate = Double(cost) / exposureDays
             var utc = Calendar(identifier: .gregorian); utc.timeZone = TimeZone(secondsFromGMT: 0)!
             let resetParts = utc.dateComponents([.year, .month, .day], from: quota.resetDate)
             let reset = calendar.date(from: resetParts)!
-            let remaining = max(0, calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: reset).day ?? 0)
+            let remaining = Workdays.count(from: now, to: reset, excludeWeekends: excludeWeekends, calendar: calendar)
             let month = calendar.dateInterval(of: .month, for: now)!
             let monthCovered = dataset.coverageStart <= month.start && dataset.coverageEnd >= now
             let monthCost = dataset.events.filter { $0.date >= month.start && $0.date <= now }.reduce(Int64(0)) { $0 + $1.costMicros }
-            let monthDays = calendar.range(of: .day, in: .month, for: now)!.count
+            let monthDays = max(1, Workdays.count(from: month.start, to: month.end, excludeWeekends: excludeWeekends, calendar: calendar))
             projection = UsageProjection(dailyMicros: rate,
                 safeDailyMicros: remaining > 0 ? Double(quota.remainingCents) * 10_000 / Double(remaining) : 0,
                 remainingDays: remaining,
-                projectedMonthMicros: monthCovered ? Double(monthCost) + rate * max(0, month.end.timeIntervalSince(now)) / 86400 : nil,
+                projectedMonthMicros: monthCovered ? Double(monthCost) + rate * Workdays.seconds(from: now, to: month.end, excludeWeekends: excludeWeekends, calendar: calendar) / 86400 : nil,
                 monthEnd: month.end.addingTimeInterval(-1), idealDailyMicros: Double(quota.limitCents) * 10_000 / Double(monthDays))
         }
         return AnalyticsReport(interval: interval, costMicros: cost,

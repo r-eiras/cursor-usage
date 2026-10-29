@@ -38,6 +38,11 @@ MainActor.assumeIsolated {
         sliders[0].integerValue = 75; _ = sliders[0].sendAction(sliders[0].action, to: sliders[0].target)
         sliders[1].doubleValue = 25; _ = sliders[1].sendAction(sliders[1].action, to: sliders[1].target)
         let alertDraft = controls.draft()!
+        let weekendToggle = alertButtons.first { $0.title == L("Excluir fins de semana da cota diária", "Exclude weekends from the daily quota") }!
+        check(alertDraft.excludeWeekends && weekendToggle.state == .on && weekendToggle.isEnabled, "Weekends start out of the daily quota")
+        weekendToggle.performClick(nil); check(controls.draft()?.excludeWeekends == false, "The weekend choice reaches the saved draft")
+        check(!weekendToggle.frame.intersects(limit.frame) && !weekendToggle.frame.intersects(cycle.frame), "The weekend choice sits between the goal and the alerts")
+        weekendToggle.performClick(nil)
         check(alertDraft.personalLimit == 500.50 && alertDraft.cyclePercent == 75 && alertDraft.dailyPercent == 25, "Goal and both sliders are reflected in the draft")
         check(alertDraft.cycleEnabled && alertDraft.dailyEnabled && alertDraft.sound && alertDraft.renewal, "All alert switches are reflected in the draft")
         check(daily.stringValue == L("2,50", "2.50"), "The daily slider updates its linked money field")

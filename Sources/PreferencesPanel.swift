@@ -153,7 +153,7 @@ import AppKit
         language.selectItem(at: AppLanguage.allCases.firstIndex(of: value.language)!); showIcon.state = value.showIcon ? .on : .off; showDetailedLabels.state = value.showDetailedLabels ? .on : .off; colorNumbers.state = value.colorNumbers ? .on : .off
         var alert = QuotaAlertDraft(); alert.personalEnabled = value.personalBudgetEnabled; alert.personalLimit = Double(value.personalBudgetMicros) / 1_000_000
         alert.cycleEnabled = value.notifyCycle; alert.cyclePercent = value.alertPercent; alert.dailyEnabled = value.notifyDaily
-        alert.dailyPercent = value.dailyAlertPercent; alert.sound = value.alertSound; alert.renewal = value.notifyRenewal
+        alert.dailyPercent = value.dailyAlertPercent; alert.sound = value.alertSound; alert.renewal = value.notifyRenewal; alert.excludeWeekends = value.excludeWeekends
         alerts.present(alert, officialLimit: providerLimitMicros.map { Double($0) / 1_000_000 })
         alerts.personalAccount = isPersonalAccount
         if isPersonalAccount {
@@ -212,7 +212,7 @@ import AppKit
         value.notifyCycle = alert.cycleEnabled; value.alertPercent = alert.cyclePercent; value.notifyDaily = alert.dailyEnabled; value.dailyAlertPercent = alert.dailyPercent
         value.notifyNewModel = modelAlerts.notifyNewModel; value.notifyModelRate = modelAlerts.notifyRate; value.modelRatePercent = modelAlerts.ratePercent; value.monitoredModels = modelAlerts.monitored
         value.modelRateUnit = modelAlerts.rateUnit; value.modelRateAmountMicros = modelAlerts.rateAmountMicros; value.modelRateReference = modelAlerts.rateReference
-        value.alertSound = alert.sound; value.notifyRenewal = alert.renewal; return value
+        value.alertSound = alert.sound; value.notifyRenewal = alert.renewal; value.excludeWeekends = alert.excludeWeekends; return value
     }
     @objc private func openAccount() { suspendForMenuBar(); onConnect?() }
     @objc private func disconnectAccount() { onDisconnect?(); disconnect.isEnabled = canDisconnect?() ?? false }
@@ -257,7 +257,7 @@ import AppKit
 
     private func refreshAssessment(_ value: AppPreferences) {
         let assessment = onCursorAssessment?(value)
-        alerts.setAssessment(allowance: assessment?.dailyLimitMicros.map { $0 / 1_000_000 }, todayUsed: assessment?.todaySpentMicros.map { Double($0) / 1_000_000 }, observedSince: nil)
+        alerts.setAssessment(allowance: assessment?.dailyLimitMicros.map { $0 / 1_000_000 }, todayUsed: assessment?.todaySpentMicros.map { Double($0) / 1_000_000 }, observedSince: nil, restDay: assessment?.isRestDay == true)
     }
     func updateReadings() { if window?.isVisible == true { changed(); models.updateSpend(onModelChoices?() ?? []); models.setPaces(onModelPaces?() ?? [:]) } }
     func setStatus(_ value: String) { status.stringValue = value }

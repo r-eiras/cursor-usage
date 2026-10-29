@@ -33,6 +33,14 @@ check(seven.models.first?.model == "model-b", "Rank models by cost, independentl
 check(seven.models.first?.tokens == 40, "Sum exact model tokens")
 check(seven.projection?.remainingDays == 10, "Interpret renewal as a local calendar date")
 check(abs(seven.projection!.safeDailyMicros - 75_000_000) < 0.01, "Divide remaining quota across remaining calendar days")
+var weekdayCalendar = calendar; weekdayCalendar.locale = Locale(identifier: "pt_BR")
+let weekdays = AnalyticsEngine.report(dataset: data, selection: PeriodSelection(preset: .last7), quota: quota, now: now, calendar: weekdayCalendar, excludeWeekends: true)!
+check(weekdays.costMicros == seven.costMicros && weekdays.daily.count == 7, "Excluding weekends keeps weekend spending and the chart's days")
+check(weekdays.projection?.remainingDays == 7, "Only weekdays are left until a Sunday renewal: two this week and five the next")
+check(abs(weekdays.projection!.safeDailyMicros - 750_000_000.0 / 7) < 0.01, "Divide the remaining quota across remaining weekdays")
+check(abs(weekdays.projection!.dailyMicros - 6_004_000 / 4.625) < 0.01, "The pace counts only weekday time: four weekdays and today's fifteen hours")
+check(abs(weekdays.projection!.idealDailyMicros - 1_000_000_000.0 / 22) < 0.01, "October 2026 has 22 weekdays")
+check(Workdays.count(from: instant("2026-10-24T18:00:00Z"), to: instant("2026-10-26T03:00:00Z"), excludeWeekends: true, calendar: weekdayCalendar) == 0, "A weekend has no weekdays left before Monday")
 let month = PeriodSelection(preset: .month)
 let monthReport = AnalyticsEngine.report(dataset: data, selection: month, quota: quota, now: now, calendar: calendar)!
 check(monthReport.interval.start == instant("2026-10-01T03:00:00Z") && monthReport.costMicros == 6_004_000, "Current month starts at local midnight on the first day of this month")

@@ -19,7 +19,8 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
         ledgerURL = folder.appendingPathComponent("alert-history.json")
         super.init()
         if let data = try? Data(contentsOf: ledgerURL), let saved = try? JSONDecoder().decode([String: Date].self, from: data) { delivered = saved }
-        delivered = delivered.filter { Date().timeIntervalSince($0.value) < 62 * 86400 }
+        // Weekend notices are said once for good, so they outlive the 62 days other notices are remembered.
+        delivered = delivered.filter { $0.key.hasPrefix(WeekendNotices.prefix) || Date().timeIntervalSince($0.value) < 62 * 86400 }
         center.delegate = self
         center.setNotificationCategories([
             UNNotificationCategory(identifier: Self.updateCategory, actions: [UNNotificationAction(identifier: Self.installAction, title: L("Atualizar agora", "Update now"), options: [])], intentIdentifiers: []),
@@ -83,7 +84,10 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
     }
 
     // Model alerts start on without any setup, so like update notices they ask macOS once when the first one is due.
-    func announceModels(_ alerts: [BudgetAlert], sound: Bool) {
+    func announceModels(_ alerts: [BudgetAlert], sound: Bool) { announceUnasked(alerts, sound: sound, kind: "models") }
+    // Weekend notices need no setup either; a click opens the card's goal.
+    func announceWeekend(_ alerts: [BudgetAlert], sound: Bool) { announceUnasked(alerts, sound: sound, kind: "goal") }
+    private func announceUnasked(_ alerts: [BudgetAlert], sound: Bool, kind: String) {
         let due = alerts.filter { !pending.contains($0.id) && delivered[$0.id] == nil }
         guard !due.isEmpty else { return }
         due.forEach { pending.insert($0.id) }
@@ -95,7 +99,7 @@ final class BudgetNotifications: NSObject, UNUserNotificationCenterDelegate {
             for alert in due {
                 let content = UNMutableNotificationContent(); content.title = alert.title; content.body = alert.body
                 if sound { content.sound = .default }
-                content.threadIdentifier = "models"; content.userInfo = ["kind": "models"]
+                content.threadIdentifier = kind; content.userInfo = ["kind": kind]
                 if alert.kind == .newModel { content.categoryIdentifier = Self.newModelCategory; content.userInfo = ["kind": "models", "model": String(alert.id.dropFirst("model-new:".count))] }
                 do { try await self.center.add(UNNotificationRequest(identifier: alert.id, content: content, trigger: nil)) } catch { continue }
                 self.delivered[alert.id] = Date()

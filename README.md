@@ -4,7 +4,7 @@ See how much of your Cursor plan you have used, right in the Mac menu bar.
 
 [Português (Brasil)](README.pt-BR.md) · [What's new](https://github.com/r-eiras/cursor-usage/releases/latest) · [Report a problem](https://github.com/r-eiras/cursor-usage/issues/new)
 
-**Version 3.5.2 · Apple Silicon Mac (M1 or later) · macOS 14 Sonoma or later · free and open source**
+**Version 3.6.0 · Apple Silicon Mac (M1 or later) · macOS 14 Sonoma or later · free and open source**
 
 This is an independent project. It is not made or endorsed by Cursor (Anysphere).
 
@@ -63,7 +63,7 @@ bash install.sh
 
 - **Summary**: what you spent in the period and how fast you are going.
 - **Models**: which models cost the most. Sort by cost, tokens or **pace** (what a model usually spends in 15 minutes, the same number the model alerts use). Rest the pointer on one to see its details.
-- **Goal**: your spending goal and today's allowance.
+- **Goal**: your spending goal and today's allowance. Weekends stay out of it: the allowance and pace count weekdays only, and Saturday and Sunday have no allowance or daily alert. To count them, turn off **Exclude weekends from the daily quota** in Settings → Alerts.
 
 **Right-click** the numbers for About, updates, Settings, disconnect and Quit.
 
@@ -108,6 +108,8 @@ Notifications only work while the app is open.
 **Usage alerts** (off until you turn them on):
 - When you reach a share of your cycle, or of today's allowance.
 - When your plan renews.
+
+**Weekend notices** (on from the start): once to say weekends are left out, once per weekend you use Cursor, and once a day after you start counting weekends again.
 
 **Model alerts** (on from the start):
 - **New model**: the first time you use a model.

@@ -202,14 +202,19 @@ import AppKit
     func update(snapshot: UsageSnapshot?, dataset: UsageDataset?, selection: PeriodSelection, stale: Bool, message: String, analyticsMessage: String, now: Date = Date()) {
         self.snapshot = snapshot; self.dataset = dataset; self.selection = selection; self.stale = stale
         self.message = message; self.analyticsMessage = analyticsMessage
-        report = dataset.flatMap { AnalyticsEngine.report(dataset: $0, selection: selection, quota: snapshot, now: now) }
+        report = dataset.flatMap { AnalyticsEngine.report(dataset: $0, selection: selection, quota: snapshot, now: now, excludeWeekends: preferences.excludeWeekends) }
         periodPicker.selectItem(at: UsagePeriod.allCases.firstIndex(of: selection.preset)!)
         refreshVisibility(); rebuildModels(); needsDisplay = true
         toolTip = nil
     }
     private var cyclePace: QuotaPace? {
         guard !stale, let snapshot, let budget else { return nil }
-        return QuotaPace.estimate(usedFraction: budget.fraction, start: budget.cycle.start, end: budget.cycle.end, observedAt: snapshot.observedAt)
+        guard preferences.excludeWeekends else { return QuotaPace.estimate(usedFraction: budget.fraction, start: budget.cycle.start, end: budget.cycle.end, observedAt: snapshot.observedAt) }
+        // Weekdays only: the cycle's clock stands still over weekends, so the expected share does not grow then.
+        let start = budget.cycle.start
+        func weekdayTime(_ date: Date) -> Date { start.addingTimeInterval(Workdays.seconds(from: start, to: date, excludeWeekends: true, calendar: .current)) }
+        let observed = weekdayTime(snapshot.observedAt), end = weekdayTime(budget.cycle.end)
+        return QuotaPace.estimate(usedFraction: budget.fraction, start: start, end: end, observedAt: observed, now: min(weekdayTime(Date()), end.addingTimeInterval(-1)))
     }
     private func refreshVisibility() {
         let models = tabs.selectedSegment == 1; sortPicker.isHidden = !models; modelScroll.isHidden = !models
@@ -316,7 +321,8 @@ import AppKit
             NSRect(x: 18, y: 279, width: daily > 0 ? 284 * min(1, Double(spent) / daily) : (spent > 0 ? 284 : 0), height: 3).fill()
             if preferences.notifyDaily { NSColor.systemOrange.setFill(); NSRect(x: 18 + 284 * preferences.dailyAlertPercent / 100, y: 276, width: 1, height: 9).fill() }
             text(budget.overDailyLimit ? L("Cota diária ultrapassada", "Daily quota exceeded") : L("Ainda hoje: \(QuotaStyle.money(budget.remainingTodayMicros ?? 0))", "Left today: \(QuotaStyle.money(budget.remainingTodayMicros ?? 0))"), y: 292, size: 11, weight: .medium, color: budget.overDailyLimit ? .systemOrange : QuotaStyle.mint)
-        } else { text(L("Histórico diário ainda indisponível", "Daily history not available yet"), y: 255, size: 11, color: QuotaStyle.muted) }
+        } else if budget.isRestDay { text(L("Fim de semana · sem cota diária", "Weekend · no daily quota"), y: 255, size: 11, color: QuotaStyle.muted) }
+        else { text(L("Histórico diário ainda indisponível", "Daily history not available yet"), y: 255, size: 11, color: QuotaStyle.muted) }
         let guidance = budget.remainingMicros == 0 ? L("Meta atingida: evite consumo adicional.", "Goal reached: avoid further usage.") : budget.requiredSavingMicros > 0 ? L("Economize \(QuotaStyle.money(budget.requiredSavingMicros))/dia para a meta.", "Save \(QuotaStyle.money(budget.requiredSavingMicros))/day to meet the goal.") : L("Ritmo na meta · até \(QuotaStyle.money(budget.recommendedDailyMicros))/dia.", "On pace · up to \(QuotaStyle.money(budget.recommendedDailyMicros))/day.")
         text(guidance, y: 314, size: 10, color: budget.requiredSavingMicros > 0 ? .systemOrange : QuotaStyle.muted)
         let alerts = [preferences.notifyCycle ? L("Aviso aos \(preferences.alertPercent)%", "Alert at \(preferences.alertPercent)%") : nil, preferences.notifyDaily ? String(format: L("Diário aos %.0f%%", "Daily at %.0f%%"), preferences.dailyAlertPercent) : nil].compactMap { $0 }
